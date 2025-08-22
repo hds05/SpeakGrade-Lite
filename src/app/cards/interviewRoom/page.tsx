@@ -483,7 +483,7 @@ const playVoice = async (text: string, speaker: string) => {
   };
 
   return (
-    <div className="relative w-full min-h-screen  bg-black text-white">
+    <div className="relative w-full min-h-screen  bg-gradient-to-b from-black/80 to-gray-400 text-white">
       {loading && !interviewStarted ? (
         <div className="bg-white">
           <Loader />
