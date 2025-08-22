@@ -195,7 +195,7 @@ export default function UpsellPage(): React.JSX.Element {
             { left: 45, top: 55, duration: 3.6, delay: 1.3 },
             { left: 65, top: 5, duration: 4.4, delay: 0.2 },
             { left: 95, top: 95, duration: 3.1, delay: 1.6 },
-            { left: 8, top: 88, duration: 4.9, delay: 0.1 }
+            { left: 8, top: 88, duration: 4.9, delay: 0.1 },
           ].map((particle, i) => (
             <motion.div
               key={i}
@@ -258,7 +258,21 @@ export default function UpsellPage(): React.JSX.Element {
               Your Potential
             </span>
           </motion.h1>
-
+          <img
+            src="/cartooncloud.webp"
+            alt="Floating cloud"
+            className="absolute top-40 left-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-48 lg:h-20 xl:w-56 xl:h-24 opacity-85 animate-floatX"
+          />
+          <img
+            src="/cartooncloud.webp"
+            alt="Floating cloud"
+            className="absolute top-40 right-1/8 w-70 h-40 opacity-85 animate-floatY"
+          />
+          <img
+            src="/cartooncloud.webp"
+            alt="Floating cloud"
+            className="absolute top-120 left-1 w-70 h-40 opacity-85 animate-floatX"
+          />
           {/* Subtitle with enhanced styling */}
           <motion.p
             className="text-xl md:text-2xl lg:text-3xl text-gray-300 mb-12 max-w-4xl mx-auto leading-relaxed font-light"
@@ -415,8 +429,8 @@ export default function UpsellPage(): React.JSX.Element {
                 Why Choose Pro?
               </h2>
               <p className="text-gray-300 text-lg mb-8">
-                Experience the most advanced AI-powered communication
-                training platform ever created
+                Experience the most advanced AI-powered communication training
+                platform ever created
               </p>
             </div>
 
@@ -828,10 +842,31 @@ export default function UpsellPage(): React.JSX.Element {
           }
         }
 
+        @keyframes floatX {
+          0%, 100% { transform: translateX(0px) rotate(0deg); }
+          25% { transform: translateX(15px) rotate(1deg); }
+          50% { transform: translateX(-8px) rotate(-1deg); }
+          75% { transform: translateX(20px) rotate(0.5deg); }
+        }
+        
+        @keyframes floatY {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          25% { transform: translateY(-12px) rotate(-0.5deg); }
+          50% { transform: translateY(8px) rotate(0.5deg); }
+          75% { transform: translateY(-18px) rotate(-1deg); }
+        }
+
         .animate-gradient {
           animation: gradient 3s ease infinite;
         }
-
+        .animate-floatX {
+          animation: floatX 25s ease-in-out infinite;
+        }
+        
+        .animate-floatY {
+          animation: floatY 30s ease-in-out infinite;
+        }
+        
         .animate-gradient-delayed {
           animation: gradient-delayed 3s ease infinite;
           animation-delay: 1.5s;
