@@ -200,11 +200,11 @@ export default function ClientLayout({
       {/* Foreground */}
       <div className="relative z-10 w-full h-full overflow-y-auto">
         <Header />
-
+        <img src="https://img.freepik.com/premium-vector/cute-yellow-sun-rise-cloud-cartoon-illustration-isolated-flat-vector_1167562-13607.jpg" alt="" className="absolute top-3 my-10 right-32 sm:top-[30px] sm:right-80 md:top-[5px] rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatX" />
         <main className="w-full flex flex-col items-center py-6 sm:py-8 lg:py-12 px-3 sm:px-6">
           <div className="w-full max-w-7xl">
             {/* Hero Section - Floating Cloud Card */}
-            <div className="relative overflow-hidden w-full rounded-3xl bg-gradient-to-r from-violet-200 to-pink-200 backdrop-blur-xl border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-6 sm:p-8 mb-8 sm:mb-10 lg:mb-12 text-center">
+            <div className="relative overflow-hidden w-full rounded-3xl bg-gradient-to-r from-violet-200 to-pink-200 backdrop-blur-xl border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-6 sm:p-8 mb-8 sm:mb-10 lg:mb-12 text-center mt-8">
               {/* Cloud decorations - Enhanced visibility */}
               <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/80 rounded-full blur-[0.5px]"></div>
               <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/80 rounded-full blur-[0.5px]"></div>
