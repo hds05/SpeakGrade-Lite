@@ -107,10 +107,11 @@ export default function UpsellPage(): React.JSX.Element {
       {/* Enhanced Header */}
       <div className="relative overflow-hidden min-h-screen flex items-center justify-center">
         {/* Dynamic background with multiple layers */}
+        <img src="https://static.vecteezy.com/system/resources/previews/047/395/367/non_2x/cute-cartoon-moon-png.png" alt="" className="absolute top-1 right-2 sm:top-1 sm:right-80 md:top-1 rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatX z-99" />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/80 to-slate-800"></div>
 
         {/* Animated mesh gradient overlay */}
-        <motion.div
+        {/* <motion.div
           className="absolute inset-0 opacity-30"
           animate={{
             backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"],
@@ -128,10 +129,10 @@ export default function UpsellPage(): React.JSX.Element {
             `,
             backgroundSize: "800px 800px",
           }}
-        />
+        /> */}
 
         {/* Floating geometric shapes */}
-        <motion.div
+        {/* <motion.div
           animate={{
             rotate: [0, 360],
             scale: [1, 1.2, 1],
@@ -142,9 +143,9 @@ export default function UpsellPage(): React.JSX.Element {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute top-20 left-10 w-40 h-40 border border-purple-400/20 rounded-full blur-sm"
-        />
-
+          className="absolute top-20 left-10 w-40 h-40 border border-purple-400/20 rounded-full opacity-10"
+        /> */}
+{/* 
         <motion.div
           animate={{
             rotate: [360, 0],
@@ -171,7 +172,7 @@ export default function UpsellPage(): React.JSX.Element {
             ease: "easeInOut",
           }}
           className="absolute bottom-20 left-1/4 w-24 h-24 border border-pink-400/20 rounded-full blur-sm"
-        />
+        /> */}
 
         {/* Particle effect dots */}
         <div className="absolute inset-0 overflow-hidden">
@@ -266,12 +267,12 @@ export default function UpsellPage(): React.JSX.Element {
           <img
             src="/cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-40 right-1/8 w-70 h-40 opacity-85 animate-floatY"
+            className="absolute top-35 sm:top-35 right-1/8 sm:right-1 w-25 h-10 sm:w-70 sm:h-40 opacity-85 animate-floatY"
           />
           <img
             src="/cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-120 left-1 w-70 h-40 opacity-85 animate-floatX"
+            className="absolute bottom-40 left-1 w-70 h-40 sm:bottom-30 opacity-85 animate-floatX"
           />
           {/* Subtitle with enhanced styling */}
           <motion.p
