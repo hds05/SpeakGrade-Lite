@@ -150,7 +150,7 @@ export default function ClientLayout({
           </div>
 
           {/* Cards Grid - Floating Cloud Cards */}
-          <div className="   text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full">
             {componentsList.map((item) => (
               <div
                 key={item.id}
