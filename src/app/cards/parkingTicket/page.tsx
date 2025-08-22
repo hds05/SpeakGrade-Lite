@@ -54,7 +54,7 @@ export default function ParkingTicket(): React.JSX.Element {
 
   // Load completion state from localStorage
   useEffect(() => {
-    const completed = localStorage.getItem("level5Completed") === "true";
+    const completed = localStorage.getItem("ParkingTicket(easy)_Completed") === "true";
     if (completed) {
       setShowCompletion(true);
     }
@@ -62,8 +62,8 @@ export default function ParkingTicket(): React.JSX.Element {
 
   // Completion handler
   const handleCompletion = (): void => {
-    console.log("✅ Level 5 completed. Saving to localStorage.");
-    localStorage.setItem("level5Completed", "true");
+    console.log("✅ Parking Ticket completed. Saving to localStorage.");
+    localStorage.setItem("ParkingTicket(easy)_Completed", "true");
     setShowCompletion(true);
   };
 
@@ -323,8 +323,8 @@ export default function ParkingTicket(): React.JSX.Element {
 
               <div
                 className="relative bg-contain bg-no-repeat bg-center w-full bg-gray-100
-                       bg-[url('https://www.shutterstock.com/image-vector/policeman-giving-parking-fine-semi-260nw-2036548190.jpg')]
-                       sm:bg-[url('/police_img.jpg')]
+                       bg-[url('https://img.freepik.com/free-vector/parking-fines-abstract-concept-vector-illustration-no-parking-zone-restricted-place-penalty-charge-notice-rules-violation-fine-ticket-online-payment-term-vehicle-parked-abstract-metaphor_335657-1805.jpg?t=st=1746336582~exp=1746340182~hmac=8144c51322da91d281911326c2445e8e950759564a3c419b5d89c96e9fed277c')]
+                       sm:bg-[url('https://filetickets.ca/blog-front/img/blog-hero2.svg')]
                        sm:bg-cover"
               >
                 <div className="absolute bg-black/40 w-full h-full z-[1]" />
