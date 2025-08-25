@@ -18,6 +18,15 @@ export default function Emergency911() {
   const [conversationHistory, setConversationHistory] = useState<any[]>([]);
   const [showCompletion, setShowCompletion] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [score, setScore] = useState(0);
+  const [maxScore, setMaxScore] = useState(0);
+  const [emergencyDetails, setEmergencyDetails] = useState({
+    type: false,
+    location: false,
+    condition: false,
+    confirmation: false,
+  });
   const {
     transcript = "",
     resetTranscript,
@@ -53,11 +62,20 @@ export default function Emergency911() {
       setCallActive(true);
       setTimeLeft(INITIAL_TIME);
       setConversationHistory([]);
+      setQuestionCount(0);
+      setScore(0);
+      setMaxScore(0);
+      setEmergencyDetails({
+        type: false,
+        location: false,
+        condition: false,
+        confirmation: false,
+      });
       SpeechRecognition.startListening({ continuous: true, language: "en-US" });
 
       const greeting = "911, what's your emergency?";
       handleAiReply(greeting);
-      setConversationHistory([{ role: "assistant", content: greeting }]);
+      setConversationHistory([{ role: "assistant", content: greeting, speaker: "911 Dispatcher" }]);
     }
   };
 
@@ -109,12 +127,17 @@ export default function Emergency911() {
 
   // Generate and download PDF report
   const handleDownloadPDF = () => {
+    const detailsProvided = Object.values(emergencyDetails).filter(Boolean).length;
     const reportData = {
       title: "Emergency 911 Report",
       scenario: "Emergency Dispatcher Simulation",
       completionDate: new Date().toLocaleDateString(),
       conversationHistory: conversationHistory,
-      feedback: "You have successfully completed the emergency 911 dispatcher simulation. This demonstrates your ability to communicate effectively in emergency situations.",
+      score: score,
+      maxScore: maxScore,
+      emergencyDetails: emergencyDetails,
+      detailsProvided: detailsProvided,
+      feedback: `You completed the emergency 911 dispatcher simulation with a score of ${score}/${maxScore}. You provided ${detailsProvided}/4 essential emergency details: ${emergencyDetails.type ? 'Emergency type ✓' : 'Emergency type ✗'}, ${emergencyDetails.location ? 'Location ✓' : 'Location ✗'}, ${emergencyDetails.condition ? 'Condition ✓' : 'Condition ✗'}, ${emergencyDetails.confirmation ? 'Confirmation ✓' : 'Confirmation ✗'}.`,
     };
     
     generatePDFReport(reportData);
@@ -158,16 +181,29 @@ export default function Emergency911() {
             ...conversationHistory,
             { role: "user", content: text },
           ],
+          questionCount: questionCount,
+          emergencyDetails: emergencyDetails,
         }),
       });
 
       const data = await res.json();
-      if (data.reply) {
+      if (data.conversation?.text) {
         setConversationHistory((prev) => [
           ...prev,
-          { role: "assistant", content: data.reply },
+          { role: "assistant", content: data.conversation.text, speaker: data.conversation.speaker },
         ]);
-        handleAiReply(data.reply);
+        handleAiReply(data.conversation.text);
+        
+        // Update scoring and emergency details
+        if (data.score) {
+          setScore(prev => prev + data.score.points);
+          setMaxScore(prev => prev + data.score.maxPoints);
+          setQuestionCount(prev => prev + 1);
+        }
+        
+        if (data.emergencyDetails) {
+          setEmergencyDetails(data.emergencyDetails);
+        }
       }
     } catch (err) {
       console.error("Error sending to /respond:", err);
@@ -216,6 +252,9 @@ export default function Emergency911() {
     }
     setMuted((prev) => !prev);
   };
+
+  const detailsProvided = Object.values(emergencyDetails).filter(Boolean).length;
+
   // ================= RETURN ==================
   return (
     <div className="relative w-full min-h-screen  text-white bg-black">
@@ -236,10 +275,62 @@ export default function Emergency911() {
           {/* Content */}
           <div className="relative z-20 max-w-2xl w-full px-4">
             <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-4">
-              🎉 Conversation Completed!
+              🎉 Emergency Call Completed!
             </h2>
+            
+            {/* Score Display */}
+            <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+              <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-400">
+                    {score}/{maxScore}
+                  </div>
+                  <div className="text-sm text-gray-300">Total Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-400">
+                    {maxScore > 0 ? Math.round((score / maxScore) * 100) : 0}%
+                  </div>
+                  <div className="text-sm text-gray-300">Accuracy</div>
+                </div>
+              </div>
+              
+              {/* Emergency details provided */}
+              <div className="mt-4 p-3 rounded-lg border-2 border-dashed">
+                <h4 className="text-white font-semibold mb-2">
+                  Emergency Details Provided: {detailsProvided}/4
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className={`${emergencyDetails.type ? "text-green-300" : "text-red-300"}`}>
+                    {emergencyDetails.type ? "✅" : "❌"} Emergency Type
+                  </div>
+                  <div className={`${emergencyDetails.location ? "text-green-300" : "text-red-300"}`}>
+                    {emergencyDetails.location ? "✅" : "❌"} Location
+                  </div>
+                  <div className={`${emergencyDetails.condition ? "text-green-300" : "text-red-300"}`}>
+                    {emergencyDetails.condition ? "✅" : "❌"} Condition
+                  </div>
+                  <div className={`${emergencyDetails.confirmation ? "text-green-300" : "text-red-300"}`}>
+                    {emergencyDetails.confirmation ? "✅" : "❌"} Confirmation
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance feedback */}
+              <div className="mt-4 text-center">
+                {(() => {
+                  const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+                  if (percentage >= 80) return <div className="text-green-300">🌟 Excellent! Outstanding emergency communication!</div>;
+                  if (percentage >= 60) return <div className="text-green-300">✨ Great job! Strong emergency response skills!</div>;
+                  if (percentage >= 40) return <div className="text-yellow-300">👍 Good work! Keep practicing for improvement!</div>;
+                  return <div className="text-orange-300">📚 Room for improvement. Focus on clear communication!</div>;
+                })()}
+              </div>
+            </div>
+
             <p className="text-sm sm:text-lg text-white mb-6">
-              Great job! You’ve finished Emergency 911.😁
+              Great job! You've finished the emergency 911 simulation. Thank you for participating! 😁
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -252,7 +343,7 @@ export default function Emergency911() {
                 className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
                 onClick={() => router.push("/")}
               >
-                End
+                End Session
               </button>
             </div>
           </div>
@@ -311,6 +402,21 @@ export default function Emergency911() {
       <div className="text-gray-200 text-sm italic text-center max-w-md">
         {transcript ? `"${transcript}"` : "You can speak now..."}
       </div>
+
+      {/* Progress indicator */}
+      {callActive && (
+        <div className="text-center">
+          <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
+            Questions: {questionCount}
+          </div>
+          <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full mb-2">
+            Score: {score}/{maxScore} points
+          </div>
+          <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
+            Details: {detailsProvided}/4
+          </div>
+        </div>
+      )}
 
       {/* 🔘 Buttons */}
       <div className="flex gap-4 w-full justify-center">

@@ -49,8 +49,8 @@ async function callOpenAI(messages: Message[]): Promise<string> {
   return payload.choices?.[0]?.message?.content ?? "";
 }
 
-// ✅ Scoring function for interview responses
-async function scoreUserResponse(userMessage: string, questionContext: string, timeLeft: number): Promise<ScoreData> {
+// ✅ Enhanced scoring function for interview responses
+async function scoreUserResponse(userMessage: string, questionContext: string, questionCount: number): Promise<ScoreData> {
   if (!userMessage || userMessage.trim().length < 3) {
     return { points: 0, maxPoints: 1, feedback: "Response too short or unclear" };
   }
@@ -60,22 +60,28 @@ async function scoreUserResponse(userMessage: string, questionContext: string, t
     content: `You are evaluating a job candidate's response in a professional interview.
 
     SCORING CRITERIA:
-    - 1 point: Clear, professional, and relevant response
-    - 0.5 points: Adequate but could be improved
-    - 0 points: Unclear, unprofessional, or irrelevant
+    - 1 point: Clear, professional, and relevant response with specific details
+    - 0.5 points: Adequate response but could be more detailed or specific
+    - 0 points: Unclear, unprofessional, or irrelevant response
 
     EVALUATION FACTORS:
     - Clarity of communication
-    - Professionalism
-    - Relevance to question
-    - Confidence level
-    - Time management (if time is running low)
+    - Professionalism and tone
+    - Relevance to the question asked
+    - Specificity of examples or details provided
+    - Confidence and composure
+    - Appropriate length for the question
 
     EXAMPLES:
     Question: "Tell us about yourself"
-    - Good (1 point): "I'm a marketing professional with 5 years of experience in digital advertising..."
-    - Adequate (0.5 points): "I work in marketing and like my job"
+    - Good (1 point): "I'm a marketing professional with 5 years of experience in digital advertising, specializing in social media campaigns and data analytics. I've worked with brands like Nike and Coca-Cola, helping them increase their online engagement by 40%."
+    - Adequate (0.5 points): "I work in marketing and have some experience with social media."
     - Poor (0 points): "I don't know, I just work there"
+
+    Question: "What are your strengths?"
+    - Good (1 point): "My key strengths are analytical thinking and teamwork. I love diving deep into data to find insights, and I've successfully led cross-functional teams on three major projects."
+    - Adequate (0.5 points): "I'm good at working with people and solving problems."
+    - Poor (0 points): "I'm good at stuff"
 
     Respond with JSON: {"points": 0, 0.5, or 1, "maxPoints": 1, "feedback": "brief explanation"}`
   };
@@ -84,9 +90,9 @@ async function scoreUserResponse(userMessage: string, questionContext: string, t
     role: "user",
     content: `Previous question: "${questionContext}"
     Candidate's response: "${userMessage}"
-    Time remaining: ${timeLeft} seconds
+    Question number: ${questionCount}
     
-    Score this response based on clarity, professionalism, and relevance.`
+    Score this response based on clarity, professionalism, relevance, and specificity.`
   };
 
   try {
@@ -101,10 +107,10 @@ async function scoreUserResponse(userMessage: string, questionContext: string, t
     // Fallback scoring based on response quality
     const lowerResponse = userMessage.toLowerCase();
     
-    // Simple keyword-based scoring
-    if (lowerResponse.length > 20 && !lowerResponse.includes("i don't know") && !lowerResponse.includes("um")) {
-      return { points: 1, maxPoints: 1, feedback: "Clear and professional response" };
-    } else if (lowerResponse.length > 10) {
+    // Enhanced keyword-based scoring for interview responses
+    if (lowerResponse.length > 25 && !lowerResponse.includes("i don't know") && !lowerResponse.includes("um") && !lowerResponse.includes("uh")) {
+      return { points: 1, maxPoints: 1, feedback: "Clear, detailed, and professional response" };
+    } else if (lowerResponse.length > 15 && !lowerResponse.includes("i don't know")) {
       return { points: 0.5, maxPoints: 1, feedback: "Adequate response, could be more detailed" };
     } else {
       return { points: 0, maxPoints: 1, feedback: "Response needs more detail and clarity" };
@@ -112,14 +118,15 @@ async function scoreUserResponse(userMessage: string, questionContext: string, t
   }
 }
 
-// Function to generate feedback and scoring
-async function generateFeedback(conversationHistory: Message[], timeLeft: number): Promise<{ feedback: string; score: number; maxScore: number }> {
+// ✅ Enhanced feedback generation function
+async function generateFeedback(conversationHistory: Message[], questionCount: number, totalScore: number, maxScore: number): Promise<{ feedback: string; score: number; maxScore: number }> {
   const systemPrompt = `You are an expert interview evaluator. Analyze the conversation and provide:
 1. Constructive feedback on communication skills
 2. A score out of 10 for overall performance
 3. Specific areas for improvement
+4. Positive reinforcement for strengths
 
-Consider: clarity, professionalism, response quality, and time management.`;
+Consider: clarity, professionalism, response quality, confidence, and overall interview presence.`;
 
   const conversationText = conversationHistory
     .map(msg => `${msg.speaker || msg.role}: ${msg.content}`)
@@ -131,32 +138,49 @@ Consider: clarity, professionalism, response quality, and time management.`;
 Conversation:
 ${conversationText}
 
-Time remaining: ${timeLeft} seconds
+Interview Statistics:
+- Questions answered: ${questionCount}
+- Performance score: ${totalScore}/${maxScore}
+- Accuracy: ${maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0}%
 
-Provide constructive, professional feedback.`;
-
-  const response = await callOpenAI([
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt }
-  ]);
+Provide constructive, professional feedback that encourages improvement while recognizing strengths.`;
 
   try {
+    const response = await callOpenAI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ]);
+
     const parsed = JSON.parse(response);
     return {
-      feedback: parsed.feedback || "Good communication skills demonstrated.",
-      score: parsed.score || 7,
+      feedback: parsed.feedback || "Good communication skills demonstrated. Continue practicing for improvement.",
+      score: parsed.score || Math.max(5, Math.round((totalScore / maxScore) * 10)),
       maxScore: parsed.maxScore || 10
     };
   } catch {
+    // Fallback feedback based on performance
+    const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+    let feedback = "";
+    
+    if (percentage >= 80) {
+      feedback = "Excellent interview performance! Your communication skills are strong and professional.";
+    } else if (percentage >= 60) {
+      feedback = "Good interview performance. You demonstrated solid communication skills with room for improvement.";
+    } else if (percentage >= 40) {
+      feedback = "Fair interview performance. Focus on providing more detailed and specific responses.";
+    } else {
+      feedback = "Interview performance needs improvement. Practice giving clearer, more detailed responses.";
+    }
+    
     return {
-      feedback: "Good communication skills demonstrated. Continue practicing for improvement.",
-      score: 7,
+      feedback: feedback,
+      score: Math.max(5, Math.round((totalScore / maxScore) * 10)),
       maxScore: 10
     };
   }
 }
 
-// Your POST handler
+// ✅ Your POST handler
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body: RequestBody = await req.json();
@@ -172,7 +196,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .filter((msg) => msg.role === "assistant")
         .pop()?.content || "initial question";
       
-      scoreData = await scoreUserResponse(userMessage, lastInterviewerQuestion, timeLeft);
+      scoreData = await scoreUserResponse(userMessage, lastInterviewerQuestion, questionCount);
       console.log("📊 Interview score:", scoreData);
     }
 
@@ -180,7 +204,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       role: "system",
       content: `You are acting as ${currentSpeaker}, an interviewer in a panel interview.
     You will ask exactly ONE question or give a short comment (max 2 sentences) to the candidate.
-    Do not answer for other interviewers. Only speak as "${currentSpeaker}". Output a JSON object like: {"speaker":"${currentSpeaker}","text":"..."}`,
+    Do not answer for other interviewers. Only speak as "${currentSpeaker}". 
+    
+    INTERVIEWER PERSONALITY:
+    - Professional and engaging
+    - Ask clear, relevant questions
+    - Show interest in the candidate's responses
+    - Maintain a professional but friendly tone
+    
+    Output a JSON object like: {"speaker":"${currentSpeaker}","text":"..."}`,
     };
     
     const userPrompt: Message = {
@@ -197,7 +229,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       json = JSON.parse(content);
     } catch {
-      const match = content.match(/\[[\s\S]*?\]/);
+      const match = content.match(/\{[\s\S]*?\}/);
       if (match) {
         try {
           json = JSON.parse(match[0]);
@@ -209,17 +241,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!json) {
       console.warn("⚠️ GPT response not JSON. Falling back.");
+      const fallbackQuestions = [
+        "Hello and welcome to your interview. Can you please tell us about yourself?",
+        "Thanks — can you tell me more about your background?",
+        "What interests you about this position?",
+        "Can you describe a challenging project you worked on?",
+        "How do you handle working under pressure?",
+        "What are your career goals for the next few years?",
+        "Do you have any questions for us?",
+        "Thank you for your time today. We'll be in touch soon.",
+      ];
+      
+      const questionIndex = Math.min(questionCount, fallbackQuestions.length - 1);
       json = {
-        speaker: "Bob",
-        text: "Thanks — can you tell me more about your background?",
+        speaker: currentSpeaker,
+        text: fallbackQuestions[questionIndex],
       };
     }
 
     // Generate feedback if this is the last question or time is running low
     let feedback = null;
-    if (timeLeft <= 5 || conversationHistory.length >= 8) {
+    if (timeLeft <= 5 || questionCount >= 6) {
       try {
-        feedback = await generateFeedback(conversationHistory, timeLeft);
+        // Calculate current totals for feedback
+        const currentScore = conversationHistory
+          .filter((msg) => msg.role === "user")
+          .length * scoreData.points; // Simplified calculation
+        const currentMaxScore = Math.max(1, questionCount);
+        
+        feedback = await generateFeedback(conversationHistory, questionCount, currentScore, currentMaxScore);
         console.log("📊 Generated feedback:", feedback);
       } catch (error) {
         console.warn("⚠️ Failed to generate feedback:", error);

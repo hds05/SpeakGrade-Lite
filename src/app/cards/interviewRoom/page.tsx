@@ -95,6 +95,8 @@ export default function InterviewRoom() {
       conversationHistory: history,
       score: score,
       maxScore: maxScore,
+      questionCount: questionCount,
+      timeUsed: Initial_Time - timeLeft,
       feedback: feedback?.feedback || `You have successfully completed the interview simulation with three professional interviewers in ${Initial_Time - timeLeft} seconds. This demonstrates your ability to communicate effectively in a professional setting under time pressure.`,
     };
     
@@ -228,6 +230,13 @@ export default function InterviewRoom() {
         setMaxScore(prev => prev + data.score.maxPoints);
         setQuestionCount(prev => prev + 1);
         console.log("📊 Received score:", data.score);
+        
+        // Show current question score briefly
+        if (data.score.points > 0) {
+          setTimeout(() => {
+            // Score will be displayed in the progress indicator
+          }, 1000);
+        }
       }
 
       if (reply.trim()) {
@@ -682,9 +691,14 @@ const playVoice = async (text: string, speaker: string) => {
                         <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
                           Questions: {questionCount}
                         </div>
-                        <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full">
+                        <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full mb-2">
                           Score: {score}/{maxScore} points
                         </div>
+                        {feedback && (
+                          <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
+                            Feedback: {feedback.score}/{feedback.maxScore}
+                          </div>
+                        )}
                       </div>
                     )}
 
