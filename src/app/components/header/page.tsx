@@ -12,7 +12,7 @@ function Header(): React.JSX.Element {
         
         {/* Navigation Link */}
         <Link href="/cards/upsell" passHref>
-          <div className="flex items-center gap-2 text-sm sm:text-base text-purple-700 font-medium hover:text-purple-900 transition-all cursor-pointer">
+          <div className="flex items-center gap-2 text-sm sm:text-base text-purple-700 font-medium hover:text-purple-900 transition-all cursor-pointer animate-bounce">
             Upgrade
             <ArrowRightIcon className="w-5 h-5" />
           </div>
