@@ -327,13 +327,13 @@ export default function ClientLayout({
             transform: translateX(0px) rotate(0deg);
           }
           25% {
-            transform: translateX(15px) rotate(1deg);
+            transform: translateX(45px) rotate(1deg);
           }
           50% {
-            transform: translateX(-8px) rotate(-1deg);
+            transform: translateX(-38px) rotate(-1deg);
           }
           75% {
-            transform: translateX(20px) rotate(0.5deg);
+            transform: translateX(40px) rotate(0.5deg);
           }
         }
 
@@ -343,13 +343,13 @@ export default function ClientLayout({
             transform: translateY(0px) rotate(0deg);
           }
           25% {
-            transform: translateY(-12px) rotate(-0.5deg);
+            transform: translateY(-32px) rotate(-0.5deg);
           }
           50% {
-            transform: translateY(8px) rotate(0.5deg);
+            transform: translateY(48px) rotate(0.5deg);
           }
           75% {
-            transform: translateY(-18px) rotate(-1deg);
+            transform: translateY(-48px) rotate(-1deg);
           }
         }
 
