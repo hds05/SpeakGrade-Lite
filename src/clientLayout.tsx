@@ -101,7 +101,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-20 right-2 w-24 h-12 sm:w-32 sm:h-16 md:w-48 md:h-24 lg:w-64 lg:h-24 xl:w-80 xl:h-32 opacity-100 animate-floatY"
+            className="absolute top-20 right-2 w-24 h-12 sm:w-32 sm:h-16 md:w-48 md:h-24 lg:w-64 lg:h-24 xl:w-80 xl:h-32 opacity-100 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -111,7 +111,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-60 right-1/9 w-28 h-14 sm:w-36 sm:h-18 md:w-48 md:h-24 lg:w-56 lg:h-28 xl:w-72 xl:h-28 opacity-80 animate-floatY"
+            className="absolute top-60 right-1/9 w-28 h-14 sm:w-36 sm:h-18 md:w-48 md:h-24 lg:w-56 lg:h-28 xl:w-72 xl:h-28 opacity-80 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -131,7 +131,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-80 left-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-70 animate-floatY"
+            className="absolute top-80 left-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-70 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -141,7 +141,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-64 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-60 animate-floatY"
+            className="absolute top-64 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-60 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -151,12 +151,12 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-56 right-2 w-14 h-7 sm:w-18 sm:h-9 md:w-22 md:h-11 lg:w-26 lg:h-13 xl:w-30 xl:h-15 opacity-75 animate-floatY"
+            className="absolute top-56 right-2 w-14 h-7 sm:w-18 sm:h-9 md:w-22 md:h-11 lg:w-26 lg:h-13 xl:w-30 xl:h-15 opacity-75 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-24 left-1/2 w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 lg:w-32 lg:h-16 xl:w-36 xl:h-18 opacity-90 animate-floatY"
+            className="absolute top-24 left-1/2 w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 lg:w-32 lg:h-16 xl:w-36 xl:h-18 opacity-90 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -166,7 +166,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute top-44 left-2 w-18 h-9 sm:w-22 sm:h-11 md:w-26 md:h-13 lg:w-30 lg:h-15 xl:w-34 xl:h-17 opacity-85 animate-floatY"
+            className="absolute top-44 left-2 w-18 h-9 sm:w-22 sm:h-11 md:w-26 md:h-13 lg:w-30 lg:h-15 xl:w-34 xl:h-17 opacity-85 animate-floatX"
           />
 
           <img
@@ -177,7 +177,7 @@ export default function ClientLayout({
           <img
             src="cartooncloud.webp"
             alt="Floating cloud"
-            className="absolute bottom-32 right-1/4 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-44 lg:h-22 xl:w-52 xl:h-26 opacity-85 animate-floatY"
+            className="absolute bottom-32 right-1/4 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-44 lg:h-22 xl:w-52 xl:h-26 opacity-85 animate-floatX"
           />
           <img
             src="cartooncloud.webp"
@@ -195,7 +195,7 @@ export default function ClientLayout({
         <img
           src="https://img.freepik.com/premium-vector/cute-yellow-sun-rise-cloud-cartoon-illustration-isolated-flat-vector_1167562-13607.jpg"
           alt=""
-          className="absolute top-3 my-10 right-32 sm:top-[30px] sm:right-80 md:top-[5px] rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatX"
+          className="absolute top-3 my-10 right-32 sm:top-[30px] sm:right-80 md:top-[5px] rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatY"
         />
         <main className="w-full flex flex-col items-center py-6 sm:py-8 lg:py-12 px-3 sm:px-6">
           <div className="w-full max-w-7xl">
@@ -343,13 +343,13 @@ export default function ClientLayout({
             transform: translateY(0px) rotate(0deg);
           }
           25% {
-            transform: translateY(-32px) rotate(-0.5deg);
+            transform: translateY(-12px) rotate(-0.5deg);
           }
           50% {
-            transform: translateY(48px) rotate(0.5deg);
+            transform: translateY(18px) rotate(0.5deg);
           }
           75% {
-            transform: translateY(-48px) rotate(-1deg);
+            transform: translateY(-18px) rotate(-1deg);
           }
         }
 
