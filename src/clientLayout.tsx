@@ -91,7 +91,7 @@ const componentsList: ComponentItem[] = [
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
     image:
-      "https://img.freepik.com/free-vector/chat-bot-concept-illustration_114360-5520.jpg",
+      "aiChatBot-card-Img.jpg",
     path: "/cards/englishGuideBot",
     isLocked: true,
     requiredScore: 60,
