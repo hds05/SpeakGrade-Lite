@@ -1,655 +1,651 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import * as THREE from 'three';
-import { useSpeechRecognition } from 'react-speech-recognition';
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { Canvas } from "@react-three/fiber";
+import { Stars, OrbitControls } from "@react-three/drei";
+import SoundWave from "@/app/components/soundWave/page";
+import { saveScenarioScore } from "@/utils/scoreManager";
 
-// TypeScript declarations for speech recognition
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
+interface ScoreData {
+  points: number;
+  maxPoints: number;
+  feedback: string;
 }
 
-interface MissionObjective {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  type: 'navigation' | 'exploration' | 'communication' | 'maintenance';
+interface ConversationResponse {
+  speaker: string;
+  text: string;
+  score: ScoreData;
+  missionStatus: string;
+  decisionsMade: number;
+  safetyLevel: number;
 }
-
-const missionObjectives: MissionObjective[] = [
-  {
-    id: '1',
-    title: 'Navigate to Mars',
-    description: 'Set course for the Red Planet and establish orbit',
-    completed: false,
-    type: 'navigation'
-  },
-  {
-    id: '2',
-    title: 'Scan Asteroid Belt',
-    description: 'Analyze composition of nearby asteroids',
-    completed: false,
-    type: 'exploration'
-  },
-  {
-    id: '3',
-    title: 'Contact Space Station',
-    description: 'Establish communication with ISS',
-    completed: false,
-    type: 'communication'
-  },
-  {
-    id: '4',
-    title: 'Check Life Support',
-    description: 'Verify all systems are operational',
-    completed: false,
-    type: 'maintenance'
-  }
-];
 
 export default function SpacecraftSimulation() {
-  const [currentMission, setCurrentMission] = useState<MissionObjective | null>(null);
-  const [gameMode, setGameMode] = useState<'menu' | 'mission'>('menu');
-  
-  // Jarvis AI Companion States
-  const [jarvisMessage, setJarvisMessage] = useState('');
-  const [isListening, setIsListening] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  
-  // 3D Scene Refs
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const spaceshipRef = useRef<THREE.Group | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const router = useRouter();
+  const [phase, setPhase] = useState<"intro" | "emergency" | "mission" | "completion">("intro");
+  const [emergencyLights, setEmergencyLights] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<Array<{ speaker: string; text: string }>>([]);
+  const [jarvisSpeaking, setJarvisSpeaking] = useState(false);
+  const [micActive, setMicActive] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [missionPhase, setMissionPhase] = useState("emergency");
+  const [decisionsMade, setDecisionsMade] = useState(0);
+  const [safetyLevel, setSafetyLevel] = useState(50);
+  const [totalScore, setTotalScore] = useState(0);
+  const [maxScore, setMaxScore] = useState(100);
+  const [missionStatus, setMissionStatus] = useState("CONTINUE");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes in seconds
+  const [timerActive, setTimerActive] = useState(false);
 
-  // Speech Recognition Setup
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const {
     transcript,
     listening,
     resetTranscript,
-    browserSupportsSpeechRecognition
+    browserSupportsSpeechRecognition,
   } = useSpeechRecognition();
 
-  // Check if browser supports speech recognition
-  const isSpeechSupported = () => {
-    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (timerActive && timeRemaining > 0 && phase === "mission") {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            // Time's up - auto complete scenario
+            handleTimeUp();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerActive, timeRemaining, phase]);
+
+  // Cleanup effect to prevent audio AbortError
+  useEffect(() => {
+    return () => {
+      // Clean up audio when component unmounts
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.onerror = null;
+          currentAudioRef.current.onpause = null;
+          currentAudioRef.current.pause();
+          currentAudioRef.current.currentTime = 0;
+          currentAudioRef.current.src = '';
+          currentAudioRef.current = null;
+        } catch (error) {
+          console.log("Component unmount audio cleanup completed");
+        }
+      }
+    };
+  }, []);
+
+  const handleCompletion = (status: string) => {
+    console.log(`✅ Spacecraft Simulation completed with status: ${status}`);
+    
+    // Save score using the utility function
+    saveScenarioScore({
+      cardId: "Spacecraft Simulation",
+      score: totalScore,
+      maxScore: maxScore
+    });
+    
+    setPhase("completion");
+    setShowCompletion(true);
+    setMissionStatus(status);
+    
+    // Stop all speech recognition and audio
+    if (listening) {
+      SpeechRecognition.stopListening();
+    }
+    setMicActive(false);
+    
+    // Properly clean up audio to prevent AbortError
+    if (currentAudioRef.current) {
+      try {
+        // Remove event listeners first
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.onpause = null;
+        
+        // Pause and reset
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.src = '';
+        
+        // Clear the reference
+        currentAudioRef.current = null;
+      } catch (error) {
+        console.log("Audio cleanup completed");
+      }
+    }
   };
 
-  // Jarvis AI Companion Functions
-  const speakWithJarvis = async (text: string) => {
-    if (isMuted) return;
+  const handleTimeUp = () => {
+    console.log("⏰ [Timer] Time's up! Auto-completing scenario...");
     
+    // Stop the timer first
+    setTimerActive(false);
+    
+    // Then complete the scenario
+    handleCompletion("TIME_UP");
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Emergency lights effect
+  useEffect(() => {
+    if (phase === "emergency") {
+      setEmergencyLights(true);
+      const timer = setTimeout(() => {
+        setEmergencyLights(false);
+        setPhase("mission");
+        setTimerActive(true); // Start the 5-minute timer
+        startJarvisGreeting();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
+  // Start Jarvis greeting when mission phase begins
+  useEffect(() => {
+    if (phase === "mission" && !conversationStarted) {
+      startJarvisGreeting();
+    }
+  }, [phase]);
+
+  const startJarvisGreeting = () => {
+    console.log("🤖 [Jarvis] Starting greeting...");
+    const greeting = "Due to asteroid collision, our spaceship has been damaged. Don't worry, I'll guide you through what's happening outside. You just give me instructions.";
+    
+    setConversationHistory([{ speaker: "JARVIS", text: greeting }]);
+    setConversationStarted(true);
+    setMicActive(true);
+    
+    // Play Jarvis's voice
+    playJarvisVoice(greeting);
+    
+    // Start speech recognition
+    if (browserSupportsSpeechRecognition) {
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
+    }
+  };
+
+  const playJarvisVoice = async (text: string) => {
     try {
-      const response = await fetch('/api/SpacecraftSimulation/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+      setJarvisSpeaking(true);
+      
+      const response = await fetch("/api/SpacecraftSimulation/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, speaker: "Jarvis" }),
       });
       
       if (response.ok) {
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Clean up previous audio properly to prevent AbortError
+        if (currentAudioRef.current) {
+          try {
+            currentAudioRef.current.onended = null;
+            currentAudioRef.current.onerror = null;
+            currentAudioRef.current.onpause = null;
+            currentAudioRef.current.pause();
+            currentAudioRef.current.currentTime = 0;
+            currentAudioRef.current.src = '';
+    } catch (error) {
+            console.log("Previous audio cleanup completed");
+          }
+        }
+        
         const audio = new Audio(audioUrl);
-        audio.play();
+        currentAudioRef.current = audio;
+        
+        audio.onended = () => {
+          setJarvisSpeaking(false);
+          // Clean up the URL object
+          URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+          console.error("Audio playback error");
+          setJarvisSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
+        };
+        
+        await audio.play();
       }
     } catch (error) {
-      console.error('TTS Error:', error);
-      // Fallback: use browser's built-in speech synthesis if available
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.1;
-        speechSynthesis.speak(utterance);
-      }
+      console.error("TTS error:", error);
+      setJarvisSpeaking(false);
     }
   };
 
-  const startListening = () => {
-    try {
-      // Stop any existing recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-        
-        recognition.onstart = () => {
-          console.log('Speech recognition started');
-          setIsListening(true);
-        };
-        
-        recognition.onend = () => {
-          console.log('Speech recognition ended');
-          setIsListening(false);
-        };
-        
-        recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
-          setIsListening(false);
-          if (event.error === 'not-allowed') {
-            setJarvisMessage("Please allow microphone access to use voice commands.");
-          } else {
-            setJarvisMessage("Speech recognition error. Please try again.");
-          }
-        };
-        
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          console.log('Transcript received:', transcript);
-          if (transcript) {
-            handleVoiceCommand(transcript);
-          }
-        };
-        
-        recognitionRef.current = recognition;
-        recognition.start();
-      } else {
-        setJarvisMessage("Speech recognition is not supported in this browser.");
-      }
-    } catch (error) {
-      console.error('Error starting speech recognition:', error);
-      setJarvisMessage("Failed to start speech recognition. Please try again.");
-    }
-  };
-
-  const stopListening = () => {
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      setIsListening(false);
-      resetTranscript();
-    } catch (error) {
-      console.error('Error stopping speech recognition:', error);
-    }
-  };
-
-  const handleVoiceCommand = async (command: string) => {
-    if (!command.trim()) return;
-    
-    const commandLower = command.toLowerCase();
-    let response = '';
-
-    // Navigation commands
-    if (commandLower.includes('go to') || commandLower.includes('navigate to') || commandLower.includes('set course')) {
-      if (commandLower.includes('mars')) {
-        response = "Setting course for Mars. Engaging navigation systems and calculating optimal trajectory.";
-        setCurrentMission(missionObjectives[0]);
-        setGameMode('mission');
-      } else if (commandLower.includes('asteroid')) {
-        response = "Navigating to the asteroid belt. This will be an excellent opportunity for resource analysis.";
-        setCurrentMission(missionObjectives[1]);
-        setGameMode('mission');
-      } else if (commandLower.includes('station') || commandLower.includes('iss')) {
-        response = "Establishing course for the International Space Station. Preparing communication protocols.";
-        setCurrentMission(missionObjectives[2]);
-        setGameMode('mission');
-      } else {
-        response = "I didn't recognize that destination. Available targets are: Mars, Asteroid Belt, and Space Station.";
-      }
-    }
-    // General conversation
-    else if (commandLower.includes('hello') || commandLower.includes('hi') || commandLower.includes('hey')) {
-      response = "Hello! I'm Jarvis, your AI companion for this space mission. How can I assist you today?";
-    }
-    else if (commandLower.includes('how are you')) {
-      response = "I'm functioning perfectly! All my systems are operational and ready to help you navigate the cosmos.";
-    }
-    else {
-      response = "I heard your command but I'm not sure how to respond. Try asking about navigation or mission objectives.";
-    }
-
-    setJarvisMessage(response);
-    
-    try {
-      await speakWithJarvis(response);
-    } catch (error) {
-      console.log('TTS not available, continuing without audio');
-    }
-  };
-
-  // Handle transcript changes
+  // Handle speech recognition with better control
   useEffect(() => {
-    if (transcript) {
-      handleVoiceCommand(transcript);
+    console.log("🎤 [Voice] Speech recognition state:", {
+      micActive,
+      listening,
+      transcriptLength: transcript?.length || 0,
+      transcript: transcript
+    });
+    
+    if (!micActive || !listening || !conversationStarted) return;
+    
+    // Only process when speech recognition stops AND we have a substantial transcript
+    if (!listening && transcript.trim() && transcript.trim().length > 5 && !isProcessing) {
+      console.log("🎤 [Voice] User finished speaking:", transcript);
+      console.log("🎤 [Voice] Processing decision...");
+      processUserDecision(transcript);
       resetTranscript();
     }
-  }, [transcript]);
+  }, [listening, transcript, micActive, isProcessing, conversationStarted]);
 
-  // Sync listening state
-  useEffect(() => {
-    setIsListening(listening);
-  }, [listening]);
+  const processUserDecision = async (userMessage: string) => {
+    console.log("🤖 [Decision] Processing user decision:", userMessage);
+    console.log("🤖 [Decision] Decision length:", userMessage.length);
+    console.log("🤖 [Decision] Current mic state:", { micActive, listening });
+    
+    if (!userMessage.trim()) return;
+    
+    // Stop listening temporarily
+    if (listening) {
+      SpeechRecognition.stopListening();
+    }
+    setMicActive(false);
+    setIsProcessing(true);
+    
+    try {
+      const response = await fetch("/api/SpacecraftSimulation/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userMessage,
+          conversationHistory,
+          missionPhase,
+          decisionsMade,
+          safetyLevel,
+        }),
+      });
 
-  // Welcome message from Jarvis
-  useEffect(() => {
-    const welcomeMessage = "Welcome aboard the spacecraft! I'm Jarvis, your AI companion for this mission. We're ready to explore the cosmos. What would you like to do first?";
-    setJarvisMessage(welcomeMessage);
-    speakWithJarvis(welcomeMessage);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      console.log("🌐 [API] Making API call to /api/SpacecraftSimulation/respond");
+      console.log("🌐 [API] Request payload:", {
+        userMessage,
+        conversationHistoryLength: conversationHistory.length,
+        missionPhase,
+        decisionsMade,
+        safetyLevel,
+      });
 
-  // Cleanup speech recognition on unmount
-  useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
+      if (response.ok) {
+        const data: ConversationResponse = await response.json();
+        console.log("🌐 [API] Response status:", response.status);
+        console.log("🌐 [API] Response ok:", response.ok);
+        console.log("🌐 [API] Response data:", data);
+
+        // Update conversation history
+        setConversationHistory(prev => [
+          ...prev,
+          { speaker: "You", text: userMessage },
+          { speaker: data.speaker, text: data.text }
+        ]);
+
+        // Update mission state
+        setDecisionsMade(data.decisionsMade);
+        setSafetyLevel(data.safetyLevel);
+        setTotalScore(data.score.points);
+        setMaxScore(data.score.maxPoints);
+        setMissionStatus(data.missionStatus);
+
+        // Play Jarvis's response
+        await playJarvisVoice(data.text);
+
+        // Check if mission should end
+        if (data.missionStatus === "SUCCESS" || data.missionStatus === "FAIL") {
+          handleCompletion(data.missionStatus);
+          setTimerActive(false);
+        } else {
+          // Restart listening for next decision
+          setMicActive(true);
+          if (browserSupportsSpeechRecognition) {
+            SpeechRecognition.startListening({ 
+              continuous: true,
+              interimResults: false,
+              language: 'en-US'
+            });
+          }
+        }
       }
-    };
-  }, []);
-
-  // Initialize 3D Scene
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x000011, 100, 500);
-    sceneRef.current = scene;
-
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.set(0, 10, 30);
-    camera.lookAt(0, 0, 0);
-    cameraRef.current = camera;
-
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(800, 600);
-    renderer.setClearColor(0x000011, 1);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
-    rendererRef.current = renderer;
-
-    containerRef.current.appendChild(renderer.domElement);
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0x001122, 0.3);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(50, 50, 50);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    scene.add(directionalLight);
-
-    // Create spaceship
-    const spaceshipGroup = new THREE.Group();
-    
-    // Main body
-    const bodyGeometry = new THREE.ConeGeometry(2, 8, 8);
-    const bodyMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x4a90e2,
-      shininess: 100,
-      specular: 0x444444
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.rotation.z = Math.PI / 2;
-    body.castShadow = true;
-    spaceshipGroup.add(body);
-    
-    // Wings
-    const wingGeometry = new THREE.BoxGeometry(8, 0.5, 2);
-    const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x2c3e50 });
-    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    leftWing.position.set(0, -1, 0);
-    leftWing.castShadow = true;
-    spaceshipGroup.add(leftWing);
-    
-    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    rightWing.position.set(0, 1, 0);
-    rightWing.castShadow = true;
-    spaceshipGroup.add(rightWing);
-    
-    // Engine glow
-    const engineGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const engineMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xff4400
-    });
-    const engine = new THREE.Mesh(engineGeometry, engineMaterial);
-    engine.position.set(-4, 0, 0);
-    spaceshipGroup.add(engine);
-    
-    spaceshipGroup.position.set(0, 0, 0);
-    scene.add(spaceshipGroup);
-    spaceshipRef.current = spaceshipGroup;
-
-    // Create Mars (destination)
-    const marsGeometry = new THREE.SphereGeometry(8, 32, 32);
-    const marsMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0xc1440e,
-      shininess: 30,
-      specular: 0x444444
-    });
-    const mars = new THREE.Mesh(marsGeometry, marsMaterial);
-    mars.position.set(50, 0, 0);
-    mars.castShadow = true;
-    mars.receiveShadow = true;
-    scene.add(mars);
-
-    // Create asteroid belt representation
-    const asteroidGeometry = new THREE.DodecahedronGeometry(15, 0);
-    const asteroidMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x8b7355,
-      shininess: 10
-    });
-    const asteroidBelt = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
-    asteroidBelt.position.set(25, 0, 0);
-    asteroidBelt.castShadow = true;
-    asteroidBelt.receiveShadow = true;
-    scene.add(asteroidBelt);
-
-    // Create ISS (space station)
-    const issGeometry = new THREE.BoxGeometry(3, 3, 3);
-    const issMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x4a90e2,
-      shininess: 80,
-      specular: 0x666666
-    });
-    const iss = new THREE.Mesh(issGeometry, issMaterial);
-    iss.position.set(0, 20, 0);
-    iss.castShadow = true;
-    iss.receiveShadow = true;
-    scene.add(iss);
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-
-      const time = Date.now() * 0.001;
-
-      // Rotate space objects
-      mars.rotation.y += 0.005;
-      asteroidBelt.rotation.y += 0.005;
-      iss.rotation.y += 0.005;
-
-      // Spaceship hover animation
-      if (spaceshipRef.current) {
-        spaceshipRef.current.position.y = Math.sin(time * 2) * 0.5;
-        spaceshipRef.current.rotation.y += 0.01;
-      }
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    // Cleanup
-    return () => {
-      if (containerRef.current && renderer.domElement) {
-        containerRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, []);
-
-  const startMission = (mission: MissionObjective) => {
-    setCurrentMission(mission);
-    setGameMode('mission');
-    const response = `Mission started: ${mission.title}. ${mission.description}`;
-    setJarvisMessage(response);
-    speakWithJarvis(response);
+    } catch (error) {
+      console.error("API error:", error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const returnToMenu = () => {
-    setGameMode('menu');
-    setCurrentMission(null);
-    setJarvisMessage("Returned to main menu. What would you like to do next?");
+  const handleDownloadPDF = () => {
+    // PDF generation logic here
+    console.log("📄 Downloading PDF report...");
   };
 
-  if (gameMode === 'menu') {
+  const handleRestart = () => {
+    console.log("🔄 [Restart] Reloading page...");
+    window.location.reload(); // Reload the entire page
+  };
+
+  const handleReturnHome = () => {
+    console.log("🏠 [Return] Stopping all processes and returning home...");
+    
+    // Stop speech recognition
+    if (listening) {
+      SpeechRecognition.stopListening();
+    }
+    setMicActive(false);
+    
+    // Stop any playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    
+    // Reset all states
+    setConversationStarted(false);
+    setTimerActive(false);
+    setPhase("intro");
+    
+    // Navigate home
+    router.push("/");
+  };
+
+  const handleStartMission = () => {
+    console.log("🚀 [Mission] Starting mission...");
+    setPhase("emergency");
+  };
+
+  if (!browserSupportsSpeechRecognition) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-blue-900 to-black relative overflow-hidden">
-        {/* Stars Background */}
-        <div className="absolute inset-0">
-          {Array.from({ length: 200 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute bg-white rounded-full"
-              style={{
-                width: `${(i % 3) + 1}px`,
-                height: `${(i % 3) + 1}px`,
-                left: `${(i * 17) % 100}%`,
-                top: `${(i * 23) % 100}%`,
-              }}
-              animate={{
-                opacity: [0.3, 1, 0.3],
-                scale: [0.8, 1.2, 0.8]
-              }}
-              transition={{
-                duration: 2 + (i % 3),
-                repeat: Infinity,
-                delay: (i * 0.1) % 2
-              }}
-            />
-          ))}
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Speech Recognition Not Supported</h1>
+          <p className="text-xl">Please use a modern browser that supports speech recognition.</p>
         </div>
+      </div>
+    );
+  }
 
-        {/* Header */}
-        <motion.div 
-          className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 text-center"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 tracking-wider drop-shadow-2xl">
-            SPACECRAFT SIMULATION
+  if (showCompletion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-black via-purple-900 to-black text-white flex items-center justify-center p-4">
+        <div className="text-center max-w-4xl">
+          <div className="mb-8">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 text-green-400">
+              {missionStatus === "SUCCESS" ? "🎉 Mission Accomplished!" : 
+               missionStatus === "FAIL" ? "💥 Mission Failed" : 
+               missionStatus === "TIME_UP" ? "⏰ Time's Up!" : "🏁 Mission Complete"}
           </h1>
-          <p className="text-blue-300 text-xl md:text-2xl tracking-widest drop-shadow-lg mb-8">
-            EMBARK ON A COSMIC JOURNEY WITH JARVIS
-          </p>
-          <div className="w-48 h-2 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto rounded-full"></div>
-        </motion.div>
-
-        {/* Mission Selection */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            {missionObjectives.map((mission, index) => (
-              <motion.div
-                key={mission.id}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-gradient-to-br from-blue-900/90 via-purple-900/90 to-cyan-900/90 backdrop-blur-lg rounded-2xl p-6 border border-blue-400/50 shadow-2xl cursor-pointer hover:scale-105 transition-transform"
-                onClick={() => startMission(mission)}
-              >
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white text-2xl">
-                      {mission.type === 'navigation' ? '🚀' : 
-                       mission.type === 'exploration' ? '🔍' : 
-                       mission.type === 'communication' ? '📡' : '🔧'}
-                    </span>
-                  </div>
-                  <h3 className="text-white font-bold text-xl mb-2">{mission.title}</h3>
-                  <p className="text-blue-200 text-sm">{mission.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+            <p className="text-xl md:text-2xl text-gray-300 mb-6">
+              {missionStatus === "SUCCESS" ? "Congratulations! You've successfully completed the mission." :
+               missionStatus === "FAIL" ? "The mission was compromised due to unsafe decisions." :
+               missionStatus === "TIME_UP" ? "The 5-minute time limit has expired." : "Mission completed with mixed results."}
+            </p>
         </div>
 
-        {/* Jarvis Companion */}
-        <motion.div 
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50"
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-        >
-          <div className="bg-gradient-to-br from-blue-900/95 via-purple-900/95 to-cyan-900/95 backdrop-blur-xl rounded-3xl p-8 border border-blue-400/50 shadow-2xl max-w-2xl">
-            <div className="flex items-center justify-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center animate-pulse shadow-lg">
-                <span className="text-white text-3xl">🤖</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-2xl font-bold text-blue-400 mb-2">Decisions Made</h3>
+              <p className="text-4xl font-bold">{decisionsMade}</p>
               </div>
-              <div className="text-center">
-                <h3 className="text-white font-bold text-2xl tracking-wider">JARVIS</h3>
-                <p className="text-blue-200 text-sm">Your AI Space Companion</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-2xl font-bold text-green-400 mb-2">Safety Level</h3>
+              <p className="text-4xl font-bold">{safetyLevel}%</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-2xl font-bold text-yellow-400 mb-2">Score</h3>
+              <p className="text-4xl font-bold">{totalScore}/{maxScore}</p>
               </div>
             </div>
             
-            {jarvisMessage && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-black/40 rounded-2xl p-6 border border-blue-400/30 mb-6 text-center"
-              >
-                <p className="text-white text-lg leading-relaxed font-medium">
-                  {jarvisMessage}
-                </p>
-              </motion.div>
-            )}
-
-            <div className="flex justify-center space-x-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={handleDownloadPDF}
+              className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+            >
+              📄 Download Report
+            </button>
               <button
-                onClick={() => {
-                  if (isListening) {
-                    stopListening();
-                  } else {
-                    startListening();
-                  }
-                }}
-                disabled={!isSpeechSupported()}
-                className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
-                  isListening 
-                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg' 
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg'
-                } ${!isSpeechSupported() ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
-              >
-                {isListening ? '🛑 Stop Listening' : '🎤 Start Listening'}
+              onClick={handleRestart}
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors"
+            >
+              🚀 Restart Mission
               </button>
-              
               <button
-                onClick={() => setIsMuted(!isMuted)}
-                className={`px-6 py-4 rounded-2xl font-semibold transition-all duration-300 ${
-                  isMuted 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-lg' 
-                    : 'bg-green-500 hover:bg-green-600 text-white shadow-lg'
-                } hover:scale-105`}
-              >
-                {isMuted ? '🔊 Unmute' : '🔇 Mute'}
+              onClick={handleReturnHome}
+              className="px-8 py-4 bg-gray-600 text-white font-semibold rounded-xl hover:bg-gray-700 transition-colors"
+            >
+              🏠 Return Home
               </button>
-            </div>
 
-            <div className="mt-4 text-center">
-              <p className="text-blue-200 text-sm">
-                Speech Support: {isSpeechSupported() ? '✅ Yes' : '❌ No'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+    return (
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Emergency Lights Effect */}
+      {emergencyLights && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          {/* 🚨 Animated emergency background - red only with low opacity */}
+          <div className="absolute inset-0 z-0 animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#dc2626,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay"></div>
+          
+          {/* Red border effects with low opacity */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse opacity-50"></div>
+          <div className="absolute top-0 right-0 w-1 h-full bg-red-500 animate-pulse opacity-50"></div>
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-red-500 animate-pulse opacity-50"></div>
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500 animate-pulse opacity-50"></div>
+        </div>
+      )}
+
+      {/* Intro Screen */}
+      {phase === "intro" && (
+        <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+          {/* Three.js Space Background */}
+        <div className="absolute inset-0">
+            <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
+              <ambientLight intensity={0.1} />
+              <pointLight position={[10, 10, 10]} intensity={1} />
+              <Stars 
+                radius={100} 
+                depth={50} 
+                count={5000} 
+                factor={4} 
+                saturation={0} 
+                fade 
+                speed={1}
+              />
+              <OrbitControls 
+                enableZoom={false} 
+                enablePan={false} 
+                autoRotate 
+                autoRotateSpeed={0.5}
+              />
+            </Canvas>
+          </div>
+          
+          <div className="text-center max-w-4xl relative z-10">
+            <div className="mb-8">
+              <h1 className="text-4xl md:text-6xl font-bold mb-4 ">
+                🚀 Spacecraft Simulation
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 mb-6">
+                Emergency Mission with JARVIS AI
               </p>
             </div>
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20 mb-8">
+              <h2 className="text-2xl font-bold mb-4">Mission Briefing</h2>
+              <p className="text-lg text-gray-300 mb-4">
+                Your spaceship has been damaged by an asteroid collision. JARVIS, your AI assistant, 
+                will guide you through critical decisions to ensure crew survival.
+              </p>
+              <ul className="text-left text-gray-300 space-y-2">
+                <li>• Make logical, safe decisions in emergency situations</li>
+                <li>• Use your space knowledge to choose destinations</li>
+                <li>• Work with JARVIS to navigate through space hazards</li>
+                <li>• Complete the mission with high safety levels</li>
+                <li>• ⏰ <strong>Time Limit: 5 minutes</strong></li>
+              </ul>
+            </div>
+
+            <button
+              onClick={handleStartMission}
+              className="px-12 py-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-2xl font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-2xl"
+            >
+              🚨 Begin the Adventure
+            </button>
           </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (gameMode === 'mission') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-blue-900 to-black relative overflow-hidden">
-        {/* 3D Scene */}
-        <div className="absolute inset-0">
-          <div ref={containerRef} className="w-full h-full" />
         </div>
+      )}
 
-        {/* Mission HUD */}
-        <div className="absolute top-8 left-8 z-50">
-          <div className="bg-gradient-to-br from-blue-900/90 via-purple-900/90 to-cyan-900/90 backdrop-blur-lg rounded-2xl p-6 border border-blue-400/50 shadow-2xl">
-            <h2 className="text-white font-bold text-2xl mb-4">Mission: {currentMission?.title}</h2>
-            <p className="text-blue-200 text-sm mb-4">{currentMission?.description}</p>
-            
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                <span className="text-white text-sm">Health: 100%</span>
+      {/* Mission Screen */}
+      {phase === "mission" && (
+        <div className="min-h-screen bg-black relative">
+          {/* Space Background with Broken Window */}
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+               style={{ backgroundImage: "url('/spacecraft-simulation.jpg')" }}>
+            <div className="absolute inset-0 bg-black/40"></div>
+          </div>
+
+          {/* Timer Display */}
+          <div className="absolute top-4 right-4 z-20">
+            <div className="bg-red-900/80 backdrop-blur-sm rounded-xl p-4 border border-red-500/50">
+              <div className="text-center">
+                <div className="text-sm text-red-200 mb-1">Time Remaining</div>
+                <div className={`text-3xl font-bold ${
+                  timeRemaining <= 60 ? 'text-red-400 animate-pulse' : 'text-white'
+                }`}>
+                  {formatTime(timeRemaining)}
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-                <span className="text-white text-sm">Fuel: 100%</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
-                <span className="text-white text-sm">Oxygen: 100%</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
-                <span className="text-white text-sm">Speed: 0 km/s</span>
+
+          {/* Mission Status */}
+          <div className="absolute top-4 left-4 z-20">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <div className="text-center">
+                <div className="text-sm text-gray-300 mb-1">Mission Phase</div>
+                <div className="text-xl font-bold text-blue-400">{missionPhase}</div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Jarvis Mission Companion */}
-        <motion.div 
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50"
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="bg-gradient-to-br from-blue-900/95 via-purple-900/95 to-cyan-900/95 backdrop-blur-xl rounded-3xl p-6 border border-blue-400/50 shadow-2xl max-w-xl">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center animate-pulse">
-                <span className="text-white text-xl">🤖</span>
+          {/* Conversation History */}
+          <div className="absolute bottom-32 left-4 right-4 z-20 max-h-64 overflow-y-auto">
+            <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <h3 className="text-lg font-bold mb-2 text-blue-400">Mission Log</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {conversationHistory.map((msg, index) => (
+                  <div key={index} className={`p-2 rounded ${
+                    msg.speaker === "JARVIS" 
+                      ? "bg-blue-900/50 border-l-4 border-blue-400" 
+                      : "bg-gray-800/50 border-l-4 border-gray-400"
+                  }`}>
+                    <div className="font-semibold text-sm text-gray-300">{msg.speaker}</div>
+                    <div className="text-white">{msg.text}</div>
+        </div>
+                ))}
               </div>
-              <h3 className="text-white font-bold text-lg">JARVIS</h3>
+            </div>
             </div>
             
-            {jarvisMessage && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-black/40 rounded-xl p-4 border border-blue-400/30 mb-4 text-center"
-              >
-                <p className="text-white text-sm leading-relaxed">
-                  {jarvisMessage}
-                </p>
-              </motion.div>
-            )}
-
-            <div className="flex justify-center space-x-3">
+          {/* Controls */}
+          <div className="absolute bottom-4 left-4 right-4 z-20">
+            <div className="flex justify-center gap-4">
               <button
                 onClick={() => {
-                  if (isListening) {
-                    stopListening();
+                  console.log("🎤 [Voice] Mute/Unmute clicked, current state:", { micActive, listening });
+                  
+                  if (micActive) {
+                    console.log("🎤 [Voice] Muting and sending transcript...");
+                    SpeechRecognition.stopListening();
+                    setMicActive(false);
+                    
+                    // Send current transcript if it exists
+                    if (transcript.trim() && transcript.trim().length > 2) {
+                      console.log("🎤 [Voice] Sending transcript:", transcript);
+                      processUserDecision(transcript);
+                      resetTranscript();
+                    }
                   } else {
-                    startListening();
+                    console.log("🎤 [Voice] Unmuting...");
+                    setMicActive(true);
+                    SpeechRecognition.startListening({ 
+                      continuous: true,
+                      interimResults: false,
+                      language: 'en-US'
+                    });
                   }
                 }}
-                disabled={!isSpeechSupported()}
-                className={`px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 ${
-                  isListening 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white'
-                } ${!isSpeechSupported() ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  micActive
+                    ? "bg-yellow-500 hover:bg-yellow-600"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
-                {isListening ? '🛑 Stop' : '🎤 Listen'}
+                {micActive ? "🔇 Mute & Send" : "🎤 Unmute"}
               </button>
               
               <button
-                onClick={returnToMenu}
-                className="px-6 py-3 rounded-xl font-semibold text-sm bg-gray-600 hover:bg-gray-700 text-white transition-all duration-300 hover:scale-105"
+                onClick={() => {
+                  setPhase("completion");
+                  setShowCompletion(true);
+                  setTimerActive(false);
+                  if (listening) {
+                    SpeechRecognition.stopListening();
+                  }
+                  setMicActive(false);
+                }}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors"
               >
-                🏠 Menu
+                🛑 End Mission
               </button>
             </div>
           </div>
-        </motion.div>
+
+          {/* Mic Active Indicator */}
+          {micActive && (
+            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
+              <SoundWave speaking={micActive} />
+            </div>
+          )}
+        </div>
+      )}
       </div>
     );
-  }
-
-  return null;
 }

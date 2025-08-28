@@ -1,7 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+interface Message {
+  role: string;
+  content: string;
+  speaker?: string;
+}
+
+interface ScoreData {
+  points: number;
+  maxPoints: number;
+  feedback: string;
+}
+
+interface ConversationResponse {
+  speaker: string;
+  text: string;
+}
 
 // ✅ Call OpenAI function
-async function callOpenAI(messages) {
+async function callOpenAI(messages: Message[]): Promise<string> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -12,7 +29,7 @@ async function callOpenAI(messages) {
       model: "gpt-4o-mini",
       messages,
       temperature: 0.7,
-      max_tokens: 250,
+      max_tokens: 450,
     }),
   });
 
@@ -25,12 +42,12 @@ async function callOpenAI(messages) {
 }
 
 // ✅ Scoring function
-async function scoreUserResponse(userMessage, questionContext) {
+async function scoreUserResponse(userMessage: string, questionContext: string): Promise<ScoreData> {
   if (!userMessage || userMessage.trim().length < 3) {
     return { points: 0, maxPoints: 1, feedback: "Response too short or empty" };
   }
 
-  const scoringPrompt = {
+  const scoringPrompt: Message = {
     role: "system",
     content: `You are evaluating an employee's response in a workplace conversation.
 
@@ -50,7 +67,7 @@ async function scoreUserResponse(userMessage, questionContext) {
     Respond with JSON: {"points": 0 or 1, "maxPoints": 1, "feedback": "brief explanation"}`,
   };
 
-  const userPrompt = {
+  const userPrompt: Message = {
     role: "user",
     content: `Previous question/context: "${questionContext}"
     Employee's response: "${userMessage}"
@@ -66,7 +83,8 @@ async function scoreUserResponse(userMessage, questionContext) {
       maxPoints: 1,
       feedback: scoreData.feedback || "",
     };
-  } catch {
+  } catch (error) {
+    console.log("⚠️ OpenAI scoring failed, using fallback:", error);
     // fallback scoring with keywords
     const lowerResponse = userMessage.toLowerCase();
 
@@ -89,7 +107,7 @@ async function scoreUserResponse(userMessage, questionContext) {
 }
 
 // ✅ POST handler
-export async function POST(req) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
     console.log("✅ Received body in Level 4 /respond:", body);
@@ -107,7 +125,7 @@ export async function POST(req) {
     - Prepared a 2-page report with survey results on Friday
     `;
 
-    const systemMsg = {
+    const systemMsg: Message = {
       role: "system",
       content: `You are Charlie, a professional but friendly marketing manager conducting a weekly check-in with your employee.
 
@@ -124,36 +142,44 @@ export async function POST(req) {
       Respond with: {"speaker":"Charlie","text":"your response"}`,
     };
 
-    const userPrompt = {
+    const userPrompt: Message = {
       role: "user",
       content: userMessage
         ? `Employee answered: "${userMessage}". Ask your next question or provide feedback.`
         : `Start the weekly check-in by asking about their ad work this week.`,
     };
 
-    // Score user’s response
-    let scoreData = { points: 0, maxPoints: 1, feedback: "" };
+    // Score user's response
+    let scoreData: ScoreData = { points: 0, maxPoints: 1, feedback: "" };
     if (userMessage && userMessage.trim()) {
       const lastManagerQuestion =
-        conversationHistory.filter((msg) => msg.role === "assistant").pop()?.content || "initial question";
+        conversationHistory.filter((msg: Message) => msg.role === "assistant").pop()?.content || "initial question";
 
       scoreData = await scoreUserResponse(userMessage, lastManagerQuestion);
       console.log("📊 User score:", scoreData);
     }
 
-    const content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-    console.log("🧠 GPT raw response:", content);
-
-    let json;
+    let content: string | null = null;
     try {
-      json = JSON.parse(content);
-    } catch {
-      const match = content.match(/\{[\s\S]*?\}/);
-      if (match) {
-        try {
-          json = JSON.parse(match[0]);
-        } catch {
-          json = null;
+      content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
+      console.log("🧠 GPT raw response:", content);
+    } catch (error) {
+      console.log("⚠️ OpenAI API call failed, using fallback:", error);
+      content = null;
+    }
+
+    let json: ConversationResponse | null = null;
+    if (content) {
+      try {
+        json = JSON.parse(content);
+      } catch {
+        const match = content.match(/\{[\s\S]*?\}/);
+        if (match) {
+          try {
+            json = JSON.parse(match[0]);
+          } catch {
+            json = null;
+          }
         }
       }
     }
@@ -182,12 +208,25 @@ export async function POST(req) {
     console.log("📤 Sending response:", JSON.stringify(json, null, 2));
     console.log("📊 Score data:", scoreData);
 
+    // Calculate progress based on question count and score
+    const totalQuestions = 8; // Total questions in the scenario
+    const currentProgress = Math.min(questionCount, totalQuestions);
+    const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
+    
+    console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+
     return NextResponse.json({
       conversation: json,
       score: scoreData,
+      progress: {
+        current: currentProgress,
+        total: totalQuestions,
+        percentage: overallProgress
+      }
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ Error in /respond", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "@/app/components/header/page";
 import Loader from "@/app/components/loader/page";
 import Confetti from "react-confetti";
@@ -9,25 +9,40 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import SoundWave from "@/app/components/soundWave/page";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
+import { saveScenarioScore } from "@/utils/scoreManager";
 
-export default function weeklyCheck() {
-  const [phase, setPhase] = useState("intro");
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [speakingIndex, setSpeakingIndex] = useState(null);
-  const [showIntroPopup, setShowIntroPopup] = useState(true);
-  const [conversationStarted, setConversationStarted] = useState(false);
-  const [micActive, setMicActive] = useState(false);
-  const [showCompletion, setShowCompletion] = useState(false);
-  const [questionCount, setQuestionCount] = useState(0);
-  const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(0);
-  const [currentQuestionScore, setCurrentQuestionScore] = useState(0);
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  speaker: string;
+}
+
+interface ScoreData {
+  points: number;
+  maxPoints: number;
+  feedback: string;
+}
+
+export default function WeeklyCheck() {
+  const [phase, setPhase] = useState<string>("intro");
+  const [history, setHistory] = useState<Message[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const [showIntroPopup, setShowIntroPopup] = useState<boolean>(true);
+  const [conversationStarted, setConversationStarted] = useState<boolean>(false);
+  const [micActive, setMicActive] = useState<boolean>(false);
+  const [showCompletion, setShowCompletion] = useState<boolean>(false);
+  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [score, setScore] = useState<number>(0);
+  const [maxScore, setMaxScore] = useState<number>(0);
+  const [currentQuestionScore, setCurrentQuestionScore] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const router = useRouter();
 
-  const conversationTimerRef = useRef(null);
+  const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { transcript, listening, resetTranscript } = useSpeechRecognition();
-  const audioUnlockedRef = useRef(false);
+  const audioUnlockedRef = useRef<boolean>(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1000);
@@ -41,17 +56,24 @@ export default function weeklyCheck() {
   }, []);
 
   // Load completion state from localStorage
-  useEffect(() => {
-    const completed = localStorage.getItem("WeeklyCheck_Completed") === "true";
-    if (completed) {
-      setShowCompletion(true);
-    }
-  }, []);
+//   useEffect(() => {
+//     const completed = localStorage.getItem("WeeklyCheck_Completed") === "true";
+//     if (completed) {
+//       setShowCompletion(true);
+//     }
+//   }, []);
 
   // Completion handler
   const handleCompletion = () => {
-    console.log("✅ Level 4 completed. Saving to localStorage.");
-    localStorage.setItem("WeeklyCheck_Completed", "true");
+    console.log("✅ Weekly Check with Manager completed. Saving to localStorage.");
+    
+    // Save score using the utility function
+    saveScenarioScore({
+      cardId: "Weekly Check with Manager",
+      score: score,
+      maxScore: maxScore
+    });
+    
     setShowCompletion(true);
   };
 
@@ -99,17 +121,24 @@ export default function weeklyCheck() {
 
     await playVoice(managerIntro, "Charlie");
 
-    setMicActive(true);
-    SpeechRecognition.startListening({ continuous: true });
+    // Wait a bit before starting speech recognition
+    setTimeout(() => {
+      setMicActive(true);
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
+    }, 2000);
 
     conversationTimerRef.current = setTimeout(() => {
       console.log("🛑 Conversation time limit reached. Stopping conversation.");
       handleStopConversation(true);
-    }, 1 * 60 * 1000);
+    }, 2 * 60 * 1000); // Increased to 2 minutes
   };
 
   // Fetch manager's response
-  const getManagerResponse = async (userMessage) => {
+  const getManagerResponse = async (userMessage: string) => {
     if (!conversationStarted) {
       console.log("🛑 Conversation already ended, skipping API call");
       return;
@@ -128,72 +157,132 @@ export default function weeklyCheck() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`API call failed: ${res.status}`);
+      }
+
       const data = await res.json();
       console.log(`🤖 Manager responded:`, data);
 
       const reply = data?.conversation?.text || data.text || data.reply || "";
-      const scoreData = data?.score || { points: 0, maxPoints: 1, feedback: "" };
+      const scoreData: ScoreData = data?.score || { points: 0, maxPoints: 1, feedback: "" };
 
       if (reply.trim()) {
         setHistory((prev) => [
           ...prev,
           { role: "assistant", content: reply, speaker: "Charlie" },
         ]);
+        
+        // Play the response first
         await playVoice(reply, "Charlie");
 
+        // Update scoring
         setScore((prev) => prev + scoreData.points);
         setMaxScore((prev) => prev + scoreData.maxPoints);
         setCurrentQuestionScore(scoreData.points);
         setQuestionCount((prev) => prev + 1);
 
+        // Show score feedback
         if (scoreData.points > 0) {
           setTimeout(() => setCurrentQuestionScore(0), 3000);
         }
 
-        if (questionCount >= 7) {
+        // Check if conversation should end
+        if (questionCount >= 5) { // Changed to 5 since we increment after
           setTimeout(() => {
             handleStopConversation(true);
           }, 3000);
+        } else {
+          // Restart listening for next question
+          setTimeout(() => {
+            setMicActive(true);
+            SpeechRecognition.startListening({ 
+              continuous: true,
+              interimResults: false,
+              language: 'en-US'
+            });
+          }, 1000); // Small delay to ensure audio finished
         }
       } else {
         console.warn("⚠️ No valid text to speak.");
+        // Restart listening even if no response
+        setMicActive(true);
+        SpeechRecognition.startListening({ 
+          continuous: true,
+          interimResults: false,
+          language: 'en-US'
+        });
       }
-
-      setMicActive(true);
-      SpeechRecognition.startListening({ continuous: true });
     } catch (err) {
-      console.error(err);
+      console.error("Error getting manager response:", err);
+      // Restart listening on error
+      setMicActive(true);
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
     } finally {
       setLoading(false);
     }
   };
 
   // Play audio from TTS
-  const playVoice = async (text, speaker) => {
+  const playVoice = async (text: string, speaker: string) => {
+    // Stop any currently playing audio first
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+    }
+    
     setSpeakingIndex(0);
     try {
+      console.log(`🎙️ Playing voice for ${speaker}:`, text.substring(0, 50) + "...");
+      
       const res = await fetch("/api/weeklyCheckWithManager/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, speaker }),
       });
 
-      if (!res.ok) throw new Error("TTS failed");
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`TTS failed: ${res.status} - ${errorText}`);
+      }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      
+      // Store reference to current audio
+      currentAudioRef.current = audio;
 
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         audio.onended = () => {
           console.log(`✅ Finished speaking: ${speaker}`);
           setSpeakingIndex(null);
+          URL.revokeObjectURL(url);
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
           resolve();
         };
-        audio.onerror = reject;
+        audio.onerror = (e) => {
+          console.error("Audio error:", e);
+          setSpeakingIndex(null);
+          URL.revokeObjectURL(url);
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
+          reject(new Error("Audio playback failed"));
+        };
         audio.play().catch((err) => {
           console.warn("Autoplay blocked, user interaction required:", err);
           setSpeakingIndex(null);
+          URL.revokeObjectURL(url);
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
           reject(err);
         });
       });
@@ -205,21 +294,29 @@ export default function weeklyCheck() {
 
   // When user stops speaking
   useEffect(() => {
-    if (!listening && transcript.trim()) {
+    if (!listening && transcript.trim() && transcript.trim().length > 3 && !isProcessing) {
+      console.log("🎤 Processing transcript:", transcript);
+      setIsProcessing(true);
       processUserAnswer(transcript);
       resetTranscript();
     }
-  }, [listening]);
+  }, [listening, transcript]);
 
   // Handle user answer
-  const processUserAnswer = async (answer) => {
+  const processUserAnswer = async (answer: string) => {
+    if (!answer.trim() || answer.trim().length < 3) return;
+    
     console.log("🗣️ User answered:", answer);
     SpeechRecognition.stopListening();
     setMicActive(false);
 
-    setHistory((prev) => [...prev, { role: "user", content: answer }]);
+    setHistory((prev) => [...prev, { role: "user", content: answer, speaker: "You" }]);
 
-    await getManagerResponse(answer);
+    try {
+      await getManagerResponse(answer);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Mute mic manually
@@ -228,7 +325,11 @@ export default function weeklyCheck() {
       SpeechRecognition.stopListening();
       setMicActive(false);
     } else {
-      SpeechRecognition.startListening({ continuous: true });
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
       setMicActive(true);
     }
   };
@@ -244,7 +345,7 @@ export default function weeklyCheck() {
       conversationTimerRef.current = null;
     }
 
-    if (isTimeUp || questionCount >= 6) {
+    if (isTimeUp || questionCount >= 4) { // Reduced from 6 to 4 questions
       handleCompletion();
       setShowCompletion(true);
     } else {
@@ -335,6 +436,7 @@ export default function weeklyCheck() {
                   >
                     End Session
                   </button>
+
                 </div>
               </div>
             </div>
@@ -412,7 +514,7 @@ export default function weeklyCheck() {
                         className="object-cover w-full h-full"
                       />
                     </div>
-                    <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
+                    <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-2 ring-2 ring-white">
                       You - Marketing Employee
                     </span>
 
@@ -447,7 +549,7 @@ export default function weeklyCheck() {
                     {conversationStarted && (
                       <div className="mt-4 text-center">
                         <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
-                          Questions: {questionCount}/8
+                          Questions: {questionCount}/6
                         </div>
                         <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full">
                           Score: {score}/{maxScore} points

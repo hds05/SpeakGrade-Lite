@@ -1,8 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(req) {
+interface TTSRequestBody {
+  text: string;
+}
+
+interface ElevenLabsVoiceSettings {
+  stability: number;
+  similarity_boost: number;
+}
+
+interface ElevenLabsRequestBody {
+  text: string;
+  voice_settings: ElevenLabsVoiceSettings;
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const { text } = await req.json();
+    const { text }: TTSRequestBody = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
@@ -13,14 +27,14 @@ export async function POST(req) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
       },
       body: JSON.stringify({
         text,
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.8,
-        },
+        } as ElevenLabsRequestBody["voice_settings"],
       }),
     });
 

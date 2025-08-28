@@ -279,11 +279,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.log("📤 Interview Room /respond sending:", JSON.stringify({ conversation: json, feedback, score: scoreData }, null, 2));
     console.log("📊 Score data:", scoreData);
 
-    return NextResponse.json({ 
-      conversation: json,
-      feedback: feedback,
-      score: scoreData
-    });
+       // Calculate progress based on question count and time
+       const totalQuestions = 8; // Total questions in the scenario
+       const currentProgress = Math.min(questionCount, totalQuestions);
+       const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
+       
+       console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+   
+       return NextResponse.json({ 
+         conversation: json,
+         feedback: feedback,
+         score: scoreData,
+         progress: {
+           current: currentProgress,
+           total: totalQuestions,
+           percentage: overallProgress
+         }
+       });
   } catch (err) {
     console.error("❌ respond error", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

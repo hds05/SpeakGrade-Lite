@@ -9,6 +9,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import SoundWave from "@/app/components/soundWave/page";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
+import { saveScenarioScore } from "@/utils/scoreManager";
 import { saveCardScore } from "@/app/utils/scoringUtils";
 import InterviewRoomGuard from "./InterviewRoomGuard";
 
@@ -83,13 +84,15 @@ export default function InterviewRoom() {
 
   // ✅ Completion handler
   const handleCompletion = () => {
-    console.log("✅ Level 3 completed. Saving to localStorage.");
-    localStorage.setItem("InterviewRoom(Easy)_Completed", "true");
+    console.log("✅ Interview Room completed. Saving to localStorage.");
     
-    // Save score to global scoring system
-    if (score > 0 && maxScore > 0) {
-      saveCardScore("Interview Room", score, maxScore);
-    }
+    // Save score using the utility function
+    saveScenarioScore({
+      cardId: "Interview Room",
+      score: score,
+      maxScore: maxScore
+    });
+    
     setShowCompletion(true);
   };
 
@@ -534,6 +537,7 @@ const playVoice = async (text: string, speaker: string) => {
                     >
                       End Session
                     </button>
+
                   </div>
                 </div>
               </div>

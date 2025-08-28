@@ -1,16 +1,16 @@
-// ✅ src/app/api/policeTicket/tts/route.js
+// ✅ src/app/api/level5/tts/route.ts
 import { NextResponse } from "next/server";
 
 // New voice ID for the police officer character
 const OFFICER_VOICE_ID = "1CgVOaiK0YikcFJJHWV0";
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
     let body = await req.json();
     let speaker = body.speaker ?? "Officer Davis";
     let text = body.text ?? body.conversation?.text ?? "";
 
-    console.log("📥 Police Ticket /tts received:", { speaker, text });
+    console.log("📥 Level 5 /tts received:", { speaker, text });
 
     if (!text.trim()) {
       return NextResponse.json({ error: "Missing text" }, { status: 400 });
@@ -47,7 +47,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "ElevenLabs failed" }, { status: 502 });
     }
 
-    console.log("✅ Police Ticket /tts audio generated successfully");
+    console.log("✅ Level 5 /tts audio generated successfully");
 
     return new Response(elevenRes.body, {
       status: 200,
@@ -57,8 +57,8 @@ export async function POST(req) {
         "Access-Control-Allow-Origin": "*", // ✅ allow browser fetch
       },
     });
-  } catch (err) {
-    console.error("Police Ticket tts error", err);
+  } catch (err: any) {
+    console.error("Level 5 tts error", err);
     return NextResponse.json({ error: err.message ?? err }, { status: 500 });
   }
 }

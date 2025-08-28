@@ -1,15 +1,24 @@
-// ✅ src/app/api/level3/tts/route.js
-import { NextResponse } from "next/server";
+// ✅ src/app/api/interviewRoom/tts/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
-const VOICES = {
+interface TTSRequest {
+  speaker?: string;
+  text?: string;
+  conversation?: {
+    speaker?: string;
+    text?: string;
+  };
+}
+
+const VOICES: Record<string, string> = {
   Alice: "BZgkqPqms7Kj9ulSkVzn",
   Bob: "NMbn4FNN0acONjKLsueJ",
   Charlie: "WF4i4ZlVIKR1m1lLbJji",
 };
 
-export async function POST(req) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json();
+    const body: TTSRequest = await req.json();
     const speaker = body.speaker ?? body.conversation?.speaker ?? "Bob";
     const text = body.text ?? body.conversation?.text ?? "";
 
@@ -46,7 +55,7 @@ export async function POST(req) {
 
     console.log("✅ /tts audio generated successfully");
 
-    return new Response(elevenRes.body, {
+    return new NextResponse(elevenRes.body, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
@@ -54,10 +63,11 @@ export async function POST(req) {
         "Access-Control-Allow-Origin": "*", // ✅ allow browser fetch
       },
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("❌ /tts error", err);
     return NextResponse.json(
-      { error: err.message ?? String(err) },
+      { error: errorMessage },
       { status: 500 }
     );
   }

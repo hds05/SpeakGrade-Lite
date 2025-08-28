@@ -106,17 +106,20 @@ async function scoreUserResponse(userMessage: string, questionContext: string, q
       maxPoints: 1,
       feedback: scoreData.feedback || ""
     };
-  } catch {
+  } catch (error) {
+    console.log("⚠️ OpenAI scoring failed, using fallback:", error);
     // Fallback scoring based on response quality
     const lowerResponse = userMessage.toLowerCase();
     
-    // Simple keyword-based scoring for emergency responses
-    if (lowerResponse.length > 15 && !lowerResponse.includes("i don't know") && !lowerResponse.includes("um")) {
-      return { points: 1, maxPoints: 1, feedback: "Clear and helpful emergency response" };
-    } else if (lowerResponse.length > 8) {
-      return { points: 0.5, maxPoints: 1, feedback: "Adequate response, could be more specific" };
+    // More generous scoring for emergency responses - any attempt to communicate is valuable
+    if (lowerResponse.length > 20 && !lowerResponse.includes("i don't know") && !lowerResponse.includes("um")) {
+      return { points: 1, maxPoints: 1, feedback: "Excellent emergency response - clear and detailed" };
+    } else if (lowerResponse.length > 12) {
+      return { points: 0.8, maxPoints: 1, feedback: "Good emergency response - clear communication" };
+    } else if (lowerResponse.length > 6) {
+      return { points: 0.6, maxPoints: 1, feedback: "Adequate emergency response - basic information provided" };
     } else {
-      return { points: 0, maxPoints: 1, feedback: "Response needs more detail and clarity" };
+      return { points: 0.3, maxPoints: 1, feedback: "Emergency response attempted - any communication helps" };
     }
   }
 }
@@ -215,20 +218,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : `Start by asking what the emergency is.`,
     };
     
-    const content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-    console.log("🧠 GPT raw response:", content);
+    let content;
+    try {
+      content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
+      console.log("🧠 GPT raw response:", content);
+    } catch (error) {
+      console.log("⚠️ OpenAI API call failed, using fallback:", error);
+      content = null;
+    }
 
     let json: ConversationResponse | null = null;
-    try {
-      json = JSON.parse(content);
-    } catch {
-      // Try to extract JSON from response
-      const match = content.match(/\{[\s\S]*?\}/);
-      if (match) {
-        try {
-          json = JSON.parse(match[0]);
-        } catch {
-          json = null;
+    if (content) {
+      try {
+        json = JSON.parse(content);
+      } catch {
+        // Try to extract JSON from response
+        const match = content.match(/\{[\s\S]*?\}/);
+        if (match) {
+          try {
+            json = JSON.parse(match[0]);
+          } catch {
+            json = null;
+          }
         }
       }
     }
@@ -254,15 +265,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
     }
 
-    console.log("📤 Emergency911 /respond sending:", JSON.stringify(json, null, 2));
-    console.log("📊 Score data:", scoreData);
-    console.log("🚨 Emergency details:", updatedEmergencyDetails);
-
-    return NextResponse.json({ 
-      conversation: json,
-      score: scoreData,
-      emergencyDetails: updatedEmergencyDetails
-    });
+        // Calculate progress based on question count and emergency details
+        const totalQuestions = 8; // Total questions in the scenario
+        const currentProgress = Math.min(questionCount, totalQuestions);
+        const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
+        
+        console.log("📤 Emergency911 /respond sending:", JSON.stringify(json, null, 2));
+        console.log("📊 Score data:", scoreData);
+        console.log("🚨 Emergency details:", updatedEmergencyDetails);
+        console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+    
+        return NextResponse.json({ 
+          conversation: json,
+          score: scoreData,
+          emergencyDetails: updatedEmergencyDetails,
+          progress: {
+            current: currentProgress,
+            total: totalQuestions,
+            percentage: overallProgress
+          }
+        });
   } catch (err) {
     console.error("❌ Emergency911 respond error", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

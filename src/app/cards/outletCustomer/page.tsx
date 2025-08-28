@@ -8,6 +8,7 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
+import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function OutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "briefing" | "main">("intro");
@@ -57,7 +58,14 @@ export default function OutletCustomer() {
   // Completion handler
   const handleCompletion = () => {
     console.log("✅ Outlet Customer completed. Saving to localStorage.");
-    localStorage.setItem("OutletCustomer(easy)_Completed", "true");
+    
+    // Save score using the utility function
+    saveScenarioScore({
+      cardId: "Outlet Customer Service",
+      score: score,
+      maxScore: maxScore
+    });
+    
     setShowCompletion(true);
   };
 
@@ -453,10 +461,11 @@ export default function OutletCustomer() {
                   </button>
                   <button
                     className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-green-500 hover:text-white"
-                    onClick={() => router.push("/main")}
+                    onClick={() => router.push("/")}
                   >
                     Finish Shopping
                   </button>
+
                 </div>
               </div>
             </div>

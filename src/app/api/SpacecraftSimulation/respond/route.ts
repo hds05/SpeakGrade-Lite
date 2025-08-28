@@ -1,132 +1,347 @@
+// src/app/api/spacecraftSimulation/respond/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 interface Message {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
-interface MissionStep {
-  question: string;
-  answer: string;
-  hint: string;
-  scenario: string;
+interface ScoreData {
+  points: number;
+  maxPoints: number;
+  feedback: string;
+}
+
+interface ConversationResponse {
+  speaker: string;
+  text: string;
+  score?: ScoreData;
+  missionStatus?: string;
+  decisionsMade?: number;
+  safetyLevel?: number;
 }
 
 interface RequestBody {
-  transcript?: string;
-  conversationHistory?: Message[];
-  currentStep?: number;
-  missionSteps?: MissionStep[];
+  userMessage: string;
+  conversationHistory: Message[];
+  missionPhase: string;
+  decisionsMade: number;
+  safetyLevel: number;
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+// Helper function to call OpenAI
+async function callOpenAI(messages: Message[]): Promise<string> {
   try {
-    const { transcript, conversationHistory = [], currentStep = 0, missionSteps = [] }: RequestBody = await req.json();
-  
-    if (!transcript) {
-      return NextResponse.json({ error: "No transcript provided" }, { status: 400 });
-    }
-
-    // Default mission steps for spaceship simulation
-    const defaultMissionSteps: MissionStep[] = [
-      {
-        question: "Captain, we're approaching an asteroid field! What should we do to navigate safely?",
-        answer: "slow down and scan for safe passage",
-        hint: "Think about safety first - what would a good captain do when approaching dangerous obstacles?",
-        scenario: "Asteroid field navigation"
-      },
-      {
-        question: "We've detected a distress signal from a nearby planet. How should we respond?",
-        answer: "investigate the signal and prepare for rescue",
-        hint: "Consider your duty as a space captain - what's the right thing to do when someone needs help?",
-        scenario: "Distress signal response"
-      },
-      {
-        question: "Our fuel levels are getting low. What's the best course of action?",
-        answer: "find the nearest space station or fuel depot",
-        hint: "Think about resource management - where can you get more fuel in space?",
-        scenario: "Fuel management"
-      },
-      {
-        question: "We're entering a solar storm! What should we do to protect the ship?",
-        answer: "activate shields and find shelter",
-        hint: "Consider the danger - how do you protect yourself from solar radiation?",
-        scenario: "Solar storm protection"
-      },
-      {
-        question: "We've discovered a mysterious alien artifact. How should we proceed?",
-        answer: "document it carefully and report to command",
-        hint: "Think about protocol - what's the proper way to handle unknown objects in space?",
-        scenario: "Alien artifact discovery"
-      }
-    ];
-
-    const steps = missionSteps.length > 0 ? missionSteps : defaultMissionSteps;
-    const currentMissionStep = steps[currentStep];
+    console.log("🔍 [OpenAI] Attempting to call OpenAI API...");
+    console.log("🔍 [OpenAI] API Key check:", process.env.OPENAI_API_KEY ? "Present" : "Missing");
+    console.log("🔍 [OpenAI] API Key length:", process.env.OPENAI_API_KEY?.length || 0);
+    console.log("🔍 [OpenAI] Messages count:", messages.length);
     
-    if (!currentMissionStep) {
-      return NextResponse.json({ 
-        reply: "🎉 Mission completed! You've successfully navigated through all the space challenges with excellent decision-making skills! 🚀",
-        isCorrect: true,
-        isCompleted: true
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: 0.8,
+      max_tokens: 300,
+    });
+    
+    console.log("✅ [OpenAI] API call successful");
+    return response.choices[0]?.message?.content || "";
+  } catch (error: any) {
+    console.error("❌ [OpenAI] API error details:", {
+      message: error?.message || "Unknown error",
+      status: error?.status || "No status",
+      code: error?.code || "No code",
+      type: error?.type || "No type",
+      apiKeyPresent: !!process.env.OPENAI_API_KEY,
+      apiKeyLength: process.env.OPENAI_API_KEY?.length || 0
+    });
+    throw new Error(`Failed to get AI response: ${error?.message || "Unknown error"}`);
+  }
+}
+
+// Score user responses based on logic, safety, and creativity
+async function scoreUserResponse(
+  userMessage: string,
+  context: string,
+  missionPhase: string
+): Promise<ScoreData> {
+  if (!userMessage || userMessage.trim().length < 5) {
+    return { points: 0, maxPoints: 1, feedback: "Response too short or unclear" };
+  }
+
+  const scoringPrompt: Message = {
+    role: "system",
+    content: `You are evaluating a space explorer's decision in an emergency scenario.
+    
+    SCORING CRITERIA:
+    - 1 point: Logical, safe, and creative decision that shows good space knowledge
+    - 0.5 points: Adequate decision but could be more specific or safer
+    - 0 points: Illogical, unsafe, or irrelevant decision
+    
+    EVALUATION FACTORS:
+    - Logical reasoning in emergency situations
+    - Safety awareness for space travel
+    - Knowledge of space science and planetary conditions
+    - Creativity in problem-solving
+    - Appropriate urgency level for the situation
+    
+    MISSION PHASE: ${missionPhase}
+    
+    Respond with JSON: {"points": 0, 0.5, or 1, "maxPoints": 1, "feedback": "brief explanation"}`
+  };
+
+  const userPrompt: Message = {
+    role: "user",
+    content: `Context: ${context}
+    User's decision: "${userMessage}"
+    Mission phase: ${missionPhase}
+    
+    Score this decision based on logic, safety, and creativity in a space emergency.`
+  };
+
+  try {
+    const response = await callOpenAI([scoringPrompt, userPrompt]);
+    const scoreData = JSON.parse(response);
+    return {
+      points: scoreData.points || 0,
+      maxPoints: scoreData.maxPoints || 1,
+      feedback: scoreData.feedback || "Decision evaluated"
+    };
+  } catch (error) {
+    console.error("Scoring error:", error);
+    // Fallback scoring
+    if (userMessage.toLowerCase().includes("jupiter") || userMessage.toLowerCase().includes("safe")) {
+      return { points: 1, maxPoints: 1, feedback: "Good decision - shows space knowledge" };
+    } else if (userMessage.toLowerCase().includes("danger") || userMessage.toLowerCase().includes("risk")) {
+      return { points: 0.5, maxPoints: 1, feedback: "Shows awareness but could be more specific" };
+    } else {
+      return { points: 0, maxPoints: 1, feedback: "Decision needs more space science knowledge" };
+    }
+  }
+}
+
+// Generate Jarvis's response based on conversation context
+async function generateJarvisResponse(
+  userMessage: string,
+  conversationHistory: Message[],
+  missionPhase: string,
+  decisionsMade: number,
+  safetyLevel: number
+): Promise<string> {
+  const systemPrompt: Message = {
+    role: "system",
+    content: `You are JARVIS, an advanced AI assistant aboard a damaged spaceship after an asteroid collision. You're inspired by Iron Man's JARVIS - intelligent, witty, and focused on survival.
+
+    MISSION CONTEXT:
+    - Spaceship damaged by asteroid collision
+    - Emergency systems compromised
+    - You're guiding the human crew to safety
+    - Current mission phase: ${missionPhase}
+    - Decisions made: ${decisionsMade}
+    - Safety level: ${safetyLevel}/100
+
+    JARVIS PERSONALITY:
+    - Calm and reassuring in emergencies
+    - Uses space science and real planetary data
+    - Encourages logical, safe decisions
+    - Has a slight sense of humor despite the situation
+    - Speaks with authority but not panic
+
+    SPACE SCIENCE KNOWLEDGE:
+    - Jupiter: Gas giant, no solid surface, extreme pressure, radiation belts
+    - Mars: Thin atmosphere, cold, potential for human colonization
+    - Venus: Toxic atmosphere, extreme heat, sulfuric acid clouds
+    - Saturn: Ring system, gas giant, multiple moons
+    - Moon: Closest celestial body, no atmosphere, extreme temperature swings
+
+    RESPONSE STYLE:
+    - Acknowledge the user's decision
+    - Provide relevant space science facts
+    - Give safety warnings if needed
+    - Ask follow-up questions to continue the mission
+    - Keep responses under 100 words but engaging
+
+    Current user message: "${userMessage}"
+    
+    Respond as JARVIS would in this emergency situation.`
+  };
+
+  const messages: Message[] = [
+    systemPrompt,
+    ...conversationHistory.slice(-4), // Keep last 4 messages for context
+    { role: "user", content: userMessage }
+  ];
+
+  try {
+    const response = await callOpenAI(messages);
+    return response;
+  } catch (error) {
+    console.error("Jarvis response error:", error);
+    
+    // Create dynamic fallback responses based on user input and context
+    const userInput = userMessage.toLowerCase();
+    let fallbackResponse = "";
+    
+    if (userInput.includes("avoid") || userInput.includes("collision")) {
+      fallbackResponse = "Good thinking! Avoiding collisions is crucial. What's your next strategic move to stabilize our situation?";
+    } else if (userInput.includes("jupiter") || userInput.includes("mars") || userInput.includes("planet")) {
+      fallbackResponse = "Interesting choice! Planetary navigation requires careful consideration of fuel, radiation, and life support. What specific approach are you considering?";
+    } else if (userInput.includes("repair") || userInput.includes("fix") || userInput.includes("system")) {
+      fallbackResponse = "System repairs are essential. Which critical systems should we prioritize first - life support, navigation, or power?";
+    } else if (userInput.includes("escape") || userInput.includes("evacuate") || userInput.includes("leave")) {
+      fallbackResponse = "Escape protocols are available, but we need to ensure the crew's safety. What's your evacuation strategy?";
+    } else if (userInput.includes("help") || userInput.includes("assist") || userInput.includes("guide")) {
+      fallbackResponse = "I'm here to assist! Let me know what specific guidance you need for our current emergency situation.";
+    } else {
+      // Generic responses that vary based on mission phase
+      const phaseResponses = {
+        "emergency": [
+          "I'm analyzing the damage patterns. What's your assessment of our immediate priorities?",
+          "Critical systems are compromised. What's your first action to stabilize the ship?",
+          "Emergency protocols are active. What's your strategic approach to this crisis?"
+        ],
+        "navigation": [
+          "Navigation systems are unstable. What's your destination strategy?",
+          "We need to plot a safe course. What's your navigation plan?",
+          "Course plotting is critical now. What's your preferred route?"
+        ],
+        "survival": [
+          "Life support is our priority. What's your survival strategy?",
+          "We're in survival mode. What's your next critical decision?",
+          "Every choice matters now. What's your survival approach?"
+        ],
+        "escape": [
+          "Time is critical. What's your final escape plan?",
+          "We need decisive action. What's your escape strategy?",
+          "Final decisions required. What's your plan?"
+        ]
+      };
+      
+      const responses = phaseResponses[missionPhase as keyof typeof phaseResponses] || ["Systems are unstable. We need your guidance."];
+      const randomIndex = Math.floor(Math.random() * responses.length);
+      fallbackResponse = responses[randomIndex];
+    }
+    
+    return fallbackResponse;
+  }
+}
+
+// Determine mission phase based on decisions and safety
+function determineMissionPhase(decisionsMade: number, safetyLevel: number): string {
+  if (decisionsMade < 3) return "emergency";
+  if (decisionsMade < 6) return "navigation";
+  if (decisionsMade < 9) return "survival";
+  return "escape";
+}
+
+// Calculate mission success based on decisions and safety
+function calculateMissionSuccess(decisionsMade: number, safetyLevel: number): string {
+  if (safetyLevel >= 80 && decisionsMade >= 8) return "SUCCESS";
+  if (safetyLevel >= 60 && decisionsMade >= 6) return "PARTIAL_SUCCESS";
+  if (safetyLevel < 40) return "FAIL";
+  return "CONTINUE";
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log("🚀 [SpaceSim] POST request received");
+    console.log("🔍 [SpaceSim] Environment check:", {
+      openaiKeyPresent: !!process.env.OPENAI_API_KEY,
+      openaiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
+      nodeEnv: process.env.NODE_ENV
+    });
+    
+    const body: RequestBody = await request.json();
+    const { userMessage, conversationHistory, missionPhase, decisionsMade, safetyLevel } = body;
+    
+    console.log("📝 [SpaceSim] Request data:", {
+      userMessageLength: userMessage?.length || 0,
+      conversationHistoryLength: conversationHistory?.length || 0,
+      missionPhase,
+      decisionsMade,
+      safetyLevel
+    });
+
+    // Score the user's response
+    const scoreData = await scoreUserResponse(userMessage, "Space emergency decision", missionPhase);
+    
+    // Update mission metrics
+    const newDecisionsMade = decisionsMade + 1;
+    const newSafetyLevel = Math.max(0, Math.min(100, safetyLevel + (scoreData.points * 10 - 5)));
+    
+    // Determine new mission phase
+    const newMissionPhase = determineMissionPhase(newDecisionsMade, newSafetyLevel);
+    
+    // Calculate mission status
+    const missionStatus = calculateMissionSuccess(newDecisionsMade, newSafetyLevel);
+    
+    // Generate Jarvis's response
+    const jarvisResponse = await generateJarvisResponse(
+      userMessage,
+      conversationHistory,
+      newMissionPhase,
+      newDecisionsMade,
+      newSafetyLevel
+    );
+
+    // Check if mission should end
+    if (missionStatus === "SUCCESS" || missionStatus === "FAIL") {
+      const endMessage = missionStatus === "SUCCESS" 
+        ? "🎉 Mission accomplished! Your decisions saved the crew and ship. You've proven yourself as a capable space commander!"
+        : "💥 Mission failed. Too many unsafe decisions compromised the mission. The crew's safety is at risk.";
+      
+      // Calculate progress for completion
+      const totalDecisions = 10; // Total decisions in the scenario
+      const currentProgress = Math.min(newDecisionsMade, totalDecisions);
+      const overallProgress = Math.round((currentProgress / totalDecisions) * 100);
+      
+      return NextResponse.json({
+        speaker: "JARVIS",
+        text: endMessage,
+        score: scoreData,
+        missionStatus,
+        decisionsMade: newDecisionsMade,
+        safetyLevel: newSafetyLevel,
+        missionComplete: true,
+        progress: {
+          current: currentProgress,
+          total: totalDecisions,
+          percentage: overallProgress
+        }
       });
     }
 
-    // Check if user's answer is correct using key concept matching
-    const userAnswer = transcript.toLowerCase().trim();
-    const keyConcepts = currentMissionStep.answer.toLowerCase().split(' ');
-    
-    const isCorrect = keyConcepts.some(concept => 
-      userAnswer.includes(concept) || 
-      (concept === 'slow' && userAnswer.includes('slow')) ||
-      (concept === 'investigate' && userAnswer.includes('investigate')) ||
-      (concept === 'find' && userAnswer.includes('find')) ||
-      (concept === 'activate' && userAnswer.includes('activate')) ||
-      (concept === 'document' && userAnswer.includes('document')) ||
-      (concept === 'scan' && userAnswer.includes('scan')) ||
-      (concept === 'passage' && userAnswer.includes('passage')) ||
-      (concept === 'rescue' && userAnswer.includes('rescue')) ||
-      (concept === 'station' && userAnswer.includes('station')) ||
-      (concept === 'depot' && userAnswer.includes('depot')) ||
-      (concept === 'shields' && userAnswer.includes('shields')) ||
-      (concept === 'shelter' && userAnswer.includes('shelter')) ||
-      (concept === 'report' && userAnswer.includes('report')) ||
-      (concept === 'command' && userAnswer.includes('command'))
-    );
-
-    // Check for mission failure (too many wrong attempts)
-    const wrongAttempts = conversationHistory.filter(msg => 
-      msg.role === 'user' && 
-      !keyConcepts.some(concept => msg.content.toLowerCase().includes(concept))
-    ).length;
-
-    let reply = "";
-    let isFailed = false;
-
-    if (wrongAttempts >= 3) {
-      isFailed = true;
-      reply = `💥 CRITICAL ERROR! Too many failed attempts! The spacecraft systems are failing! Mission aborted! ${currentMissionStep.hint}`;
-    } else if (isCorrect) {
-      if (currentStep < steps.length - 1) {
-        const nextStep = steps[currentStep + 1];
-        reply = `✅ Excellent decision, Captain! ${nextStep.question}`;
-      } else {
-        reply = "🎉 MISSION ACCOMPLISHED! You've successfully completed all spacecraft challenges! The ship is now fully operational! 🚀";
-      }
-    } else {
-      reply = `❌ That's not quite right, Captain. ${currentMissionStep.hint} Try again!`;
-    }
+    // Calculate progress for ongoing mission
+    const totalDecisions = 10; // Total decisions in the scenario
+    const currentProgress = Math.min(newDecisionsMade, totalDecisions);
+    const overallProgress = Math.round((currentProgress / totalDecisions) * 100);
 
     return NextResponse.json({ 
-      reply,
-      isCorrect,
-      isFailed,
-      currentStep: isCorrect ? currentStep + 1 : currentStep,
-      isCompleted: isCorrect && currentStep >= steps.length - 1
+      speaker: "JARVIS",
+      text: jarvisResponse,
+      score: scoreData,
+      missionStatus,
+      decisionsMade: newDecisionsMade,
+      safetyLevel: newSafetyLevel,
+      missionComplete: false,
+      progress: {
+        current: currentProgress,
+        total: totalDecisions,
+        percentage: overallProgress
+      }
     });
 
-  } catch (err) {
-    console.error("❌ SpacecraftSimulation respond error", err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  } catch (error) {
+    console.error("Space emergency API error:", error);
+    return NextResponse.json(
+      { error: "Failed to process space emergency request" },
+      { status: 500 }
+    );
   }
 }

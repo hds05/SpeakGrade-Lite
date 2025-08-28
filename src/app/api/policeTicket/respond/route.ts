@@ -275,14 +275,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
     }
 
+    // Calculate progress for the scenario
+    const totalQuestions = 8; // Total questions in police ticket scenario
+    const currentProgress = Math.min(questionCount + 1, totalQuestions);
+    const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
+
     console.log("📤 Police Ticket /respond sending:", JSON.stringify(json, null, 2));
     console.log("📊 Score data:", scoreData);
     console.log("🎫 Ticket outcome:", ticketOutcome);
+    console.log(`📊 Progress: ${currentProgress}/${totalQuestions} (${overallProgress}%)`);
 
     return NextResponse.json({ 
       conversation: json,
       score: scoreData,
-      ticketOutcome: ticketOutcome
+      ticketOutcome: ticketOutcome,
+      progress: {
+        current: currentProgress,
+        total: totalQuestions,
+        percentage: overallProgress
+      }
     });
   } catch (err) {
     console.error("❌ Police Ticket respond error", err);

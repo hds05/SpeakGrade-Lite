@@ -36,7 +36,7 @@ interface UnlockState {
 const componentsList: ComponentItem[] = [
   {
     id: 1,
-    title: "Weekly Check-In",
+    title: "Weekly Check with Manager",
     description: "Workplace conversation with your manager.",
     image:
       "https://png.pngtree.com/png-vector/20250110/ourmid/pngtree-marketing-manager-3d-icon-with-sleek-design-isolated-on-white-background-png-image_15137962.png",
@@ -56,7 +56,7 @@ const componentsList: ComponentItem[] = [
   },
   {
     id: 3,
-    title: "Fashion Outlet Customer",
+    title: "Outlet Customer Service",
     description:
       "You're a customer at Fashion Outlet with multiple issues that need to be resolved at checkout.",
     image: "outletConvo.png",
@@ -66,7 +66,7 @@ const componentsList: ComponentItem[] = [
   },
   {
     id: 4,
-    title: "911 Emergency",
+    title: "Emergency 911 Dispatcher",
     description: "You have called 911. Tell them your Emergency.",
     image:
       "https://cdn3d.iconscout.com/3d/premium/thumb/emergency-call-12217661-9967041.png",
@@ -147,6 +147,39 @@ export default function ClientLayout({
     };
 
     loadStoredData();
+
+    // Listen for storage changes to refresh scores when scenarios complete
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'speakGrade_scores') {
+        console.log('🔄 Scores updated in localStorage, refreshing...');
+        loadStoredData();
+      }
+    };
+
+    // Listen for custom events when scores are updated
+    const handleScoresUpdated = (e: CustomEvent) => {
+      console.log('🔄 Scores updated via custom event:', e.detail);
+      loadStoredData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('scoresUpdated', handleScoresUpdated as EventListener);
+
+    // Also refresh when the page becomes visible (user returns from scenario)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👁️ Page became visible, refreshing scores...');
+        loadStoredData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('scoresUpdated', handleScoresUpdated as EventListener);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Check URL parameters for locked states
@@ -208,6 +241,19 @@ export default function ClientLayout({
     }
   }, []);
 
+  // Refresh scores from localStorage
+  const refreshScores = () => {
+    try {
+      const storedScores = localStorage.getItem('speakGrade_scores');
+      if (storedScores) {
+        setScores(JSON.parse(storedScores));
+        console.log('🔄 Scores refreshed from localStorage');
+      }
+    } catch (error) {
+      console.error('Error refreshing scores:', error);
+    }
+  };
+
   // Calculate average score across all completed cards
   const calculateAverageScore = (): number => {
     const completedScores = scores.filter(score => score.completed);
@@ -218,9 +264,33 @@ export default function ClientLayout({
   };
 
   // Check if advanced cards should be unlocked
+  // Requirements: 
+  // 1. Must complete at least 3 scenarios (not just one)
+  // 2. Must achieve 60%+ average score across ALL completed scenarios
   const checkUnlockStatus = (): boolean => {
+    const completedScores = scores.filter(score => score.completed);
+    
+    // Must complete at least 3 scenarios to unlock advanced cards
+    if (completedScores.length < 3) {
+      return false;
+    }
+    
     const averageScore = calculateAverageScore();
     return averageScore >= 60;
+  };
+
+  // Get unlock requirements info
+  const getUnlockRequirements = () => {
+    const completedScores = scores.filter(score => score.completed);
+    const averageScore = calculateAverageScore();
+    
+    return {
+      scenariosCompleted: completedScores.length,
+      minimumScenarios: 3,
+      currentAverage: averageScore,
+      targetAverage: 60,
+      canUnlock: checkUnlockStatus()
+    };
   };
 
   // Update unlock state when scores change
@@ -243,6 +313,7 @@ export default function ClientLayout({
         localStorage.setItem('speakGrade_unlockState', JSON.stringify(newUnlockState));
         
         // Show SweetAlert2 unlock popup
+        const requirements = getUnlockRequirements();
         Swal.fire({
           title: '🎉 Advanced Features Unlocked! 🚀',
           html: `
@@ -251,11 +322,25 @@ export default function ClientLayout({
                 <span class="text-white text-3xl">🎉</span>
               </div>
               <p class="text-gray-700 mb-6 text-lg">
-                Congratulations! You've achieved an average score of <strong class="text-green-600">${calculateAverageScore()}%</strong> across all scenarios.
+                Congratulations! You've achieved the requirements to unlock advanced features!
               </p>
               <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-green-800 mb-2">🚀 New Features Available</h4>
-                <ul class="text-left text-green-700 space-y-1">
+                <h4 class="font-semibold text-green-800 mb-2">📊 Achievement Summary</h4>
+                <div class="text-left text-green-700 space-y-2">
+
+                  <div class="flex justify-between">
+                    <span>Average Score:</span>
+                    <span class="font-medium">${requirements.currentAverage}%</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Target Met:</span>
+                    <span class="font-medium">✅ ${requirements.minimumScenarios}+ scenarios & 60%+ average</span>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-blue-800 mb-2">🚀 New Features Available</h4>
+                <ul class="text-left text-blue-700 space-y-1">
                   <li>• <strong>English Guide Bot</strong> - AI-powered fluency assessment</li>
                   <li>• <strong>Interview Room</strong> - Professional interview simulation</li>
                 </ul>
@@ -298,7 +383,7 @@ export default function ClientLayout({
   // Handle advanced cards access
   const handleAdvancedCardAccess = (cardPath: string, cardTitle: string) => {
     if (!unlockState.advancedCardsUnlocked) {
-      const averageScore = calculateAverageScore();
+      const requirements = getUnlockRequirements();
       
       Swal.fire({
         title: '🔒 Feature Locked!',
@@ -309,19 +394,36 @@ export default function ClientLayout({
             </p>
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <h4 class="font-semibold text-blue-800 mb-2">📊 Current Progress</h4>
-              <div class="flex items-center space-x-3">
-                <div class="text-2xl font-bold text-blue-600">${averageScore}%</div>
-                <div class="text-sm text-blue-600">Average Score</div>
-              </div>
-              <div class="mt-2">
-                <div class="w-full bg-blue-200 rounded-full h-2">
-                  <div class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(averageScore, 100)}%"></div>
+              <div class="space-y-3">
+
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-blue-700">Current Average:</span>
+                  <span class="text-sm font-medium text-blue-800">${requirements.currentAverage}%</span>
                 </div>
-                <p class="text-xs text-blue-600 mt-1">${averageScore}/60% required to unlock</p>
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-blue-700">Target Average:</span>
+                  <span class="text-sm font-medium text-blue-800">${requirements.targetAverage}%</span>
+                </div>
+                <div class="mt-2">
+                  <div class="w-full bg-blue-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(requirements.currentAverage, 100)}%"></div>
+                  </div>
+                </div>
               </div>
             </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <h4 class="font-semibold text-yellow-800 mb-2">🔓 Unlock Requirements</h4>
+              <ul class="text-sm text-yellow-700 space-y-1">
+                <li>• Complete at least <strong>${requirements.minimumScenarios} scenarios</strong></li>
+                <li>• Achieve <strong>${requirements.targetAverage}%+ average score</strong> across all scenarios</li>
+
+              </ul>
+            </div>
             <p class="text-sm text-gray-600">
-              Complete more scenarios with higher scores to reach the 60% threshold and unlock advanced features!
+              ${requirements.scenariosCompleted < requirements.minimumScenarios 
+                ? `Complete ${requirements.minimumScenarios - requirements.scenariosCompleted} more scenario(s) first, then focus on improving your scores!`
+                : `Focus on improving your scores to reach the ${requirements.targetAverage}% average threshold!`
+              }
             </p>
           </div>
         `,
@@ -335,7 +437,7 @@ export default function ClientLayout({
           popup: 'animate__animated animate__fadeOutUp'
         },
         customClass: {
-          popup: 'rounded-2xl shadow-2xl',
+          popup: 'rounded-3xl shadow-2xl max-w-lg',
           confirmButton: 'rounded-xl px-6 py-3 text-sm font-semibold'
         }
       });
@@ -491,41 +593,7 @@ export default function ClientLayout({
                   AI-driven roleplay in our cloud-based learning environment.
                 </p>
                 
-                {/* Progress Indicator */}
-                <div className="mt-6 p-4 bg-white/50 rounded-2xl border border-white/60">
-                  <div className="flex items-center justify-center space-x-4 mb-2">
-                    <span className="text-sm font-medium text-gray-700">Overall Progress:</span>
-                    <span className="text-lg font-bold text-blue-600">{calculateAverageScore()}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(calculateAverageScore(), 100)}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">
-                    {scores.filter(s => s.completed).length} of 7 scenarios completed
-                  </p>
-                  
-                  {/* Demo Scoring Button */}
-                  {/* <div className="mt-4 flex justify-center">
-                    <button
-                      onClick={() => {
-                        // Demo: Add some sample scores to test the system
-                        const demoScores = [
-                          { cardId: "Weekly Check-In", score: 8, maxScore: 10, percentage: 80, completed: true, lastUpdated: new Date().toISOString() },
-                          { cardId: "Parking Ticket Encounter", score: 7, maxScore: 10, percentage: 70, completed: true, lastUpdated: new Date().toISOString() },
-                          { cardId: "Fashion Outlet Customer", score: 9, maxScore: 10, percentage: 90, completed: true, lastUpdated: new Date().toISOString() },
-                        ];
-                        setScores(demoScores);
-                        localStorage.setItem('speakGrade_scores', JSON.stringify(demoScores));
-                      }}
-                      className="px-4 py-2 bg-yellow-500 text-white text-xs rounded-lg hover:bg-yellow-600 transition-colors"
-                    >
-                      🧪 Demo: Add Sample Scores
-                    </button>
-                  </div> */}
-                </div>
+
               </div>
             </div>
           </div>
@@ -661,10 +729,10 @@ export default function ClientLayout({
                   🔒 Advanced Features (Locked)
                 </h2>
                 <p className="text-gray-600 max-w-2xl mx-auto">
-                  Complete the available scenarios with an average score of 60% or higher to unlock these advanced features.
+                  Complete at least 3 scenarios with an average score of 60% or higher across ALL scenarios to unlock these advanced features.
                 </p>
                 <div className="mt-4 inline-flex items-center space-x-4 bg-blue-50 border border-blue-200 rounded-full px-6 py-3">
-                  <span className="text-sm text-blue-700">Current Progress:</span>
+                  <span className="text-sm text-blue-700">Overall Achievement:</span>
                   <div className="flex items-center space-x-2">
                     <div className="text-2xl font-bold text-blue-600">{calculateAverageScore()}%</div>
                     <div className="text-sm text-blue-600">/ 60%</div>
@@ -675,6 +743,51 @@ export default function ClientLayout({
                       style={{ width: `${Math.min(calculateAverageScore(), 100)}%` }}
                     ></div>
                   </div>
+                </div>
+                
+                {/* Unlock Requirements */}
+                {(() => {
+                  const requirements = getUnlockRequirements();
+                  return (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="text-center">
+                        <h4 className="text-sm font-semibold text-yellow-800 mb-2">
+                          🔒 Unlock Requirements
+                        </h4>
+                        <div className="space-y-1 text-xs text-yellow-700">
+
+                          <div className="flex justify-between">
+                            <span>Current Average:</span>
+                            <span className="font-medium">{requirements.currentAverage}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Target Average:</span>
+                            <span className="font-medium">{requirements.targetAverage}%</span>
+                          </div>
+                        </div>
+                        {!requirements.canUnlock && (
+                          <p className="text-xs text-yellow-600 mt-2">
+                            {requirements.scenariosCompleted < requirements.minimumScenarios 
+                              ? `Complete ${requirements.minimumScenarios - requirements.scenariosCompleted} more scenario(s) first`
+                              : `Need ${requirements.targetAverage - requirements.currentAverage}% higher average`
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                <p className="text-xs text-gray-600 mt-2 text-center">
+                  💡 Scenario progress is shown within each individual scenario
+                </p>
+                <div className="mt-2 flex justify-center">
+                  <button
+                    onClick={refreshScores}
+                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                  >
+                    🔄 Refresh Progress
+                  </button>
                 </div>
               </div>
               

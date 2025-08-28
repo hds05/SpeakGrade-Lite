@@ -79,7 +79,8 @@ async function scoreUserResponse(userMessage: string, questionContext: string) {
       maxPoints: 1,
       feedback: scoreData.feedback || ""
     };
-  } catch {
+  } catch (error) {
+    console.log("⚠️ OpenAI scoring failed, using fallback:", error);
     // Fallback scoring based on keywords
     const lowerResponse = userMessage.toLowerCase();
     
@@ -197,20 +198,28 @@ export async function POST(req: Request) {
         : `Greet the customer and ask how you can help them today.`,
     };
     
-    const content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-    console.log("🧠 GPT raw response:", content);
+    let content;
+    try {
+      content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
+      console.log("🧠 GPT raw response:", content);
+    } catch (error) {
+      console.log("⚠️ OpenAI API call failed, using fallback:", error);
+      content = null;
+    }
 
     let json;
-    try {
-      json = JSON.parse(content);
-    } catch {
-      // Try to extract JSON from response
-      const match = content.match(/\{[\s\S]*?\}/);
-      if (match) {
-        try {
-          json = JSON.parse(match[0]);
-        } catch {
-          json = null;
+    if (content) {
+      try {
+        json = JSON.parse(content);
+      } catch {
+        // Try to extract JSON from response
+        const match = content.match(/\{[\s\S]*?\}/);
+        if (match) {
+          try {
+            json = JSON.parse(match[0]);
+          } catch {
+            json = null;
+          }
         }
       }
     }
@@ -237,14 +246,25 @@ export async function POST(req: Request) {
       };
     }
 
+        // Calculate progress based on question count and issues resolved
+    const totalQuestions = 9; // Total questions in the scenario
+    const currentProgress = Math.min(questionCount, totalQuestions);
+    const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
+    
     console.log("📤 Level 6 /respond sending:", JSON.stringify(json, null, 2));
     console.log("📊 Score data:", scoreData);
-    console.log("🛒 Issues resolved:", updatedIssues);
+    console.log("�� Issues resolved:", updatedIssues);
+    console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
 
     return NextResponse.json({ 
       conversation: json,
       score: scoreData,
-      issuesResolved: updatedIssues
+      issuesResolved: updatedIssues,
+      progress: {
+        current: currentProgress,
+        total: totalQuestions,
+        percentage: overallProgress
+      }
     });
   } catch (err: any) {
     console.error("❌ Level 6 respond error", err);

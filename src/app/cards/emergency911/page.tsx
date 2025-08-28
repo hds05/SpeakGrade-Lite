@@ -8,11 +8,12 @@ import { motion } from "framer-motion";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
+import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function Emergency911() {
   const [callActive, setCallActive] = useState(false);
   const [muted, setMuted] = useState(false);
-  const INITIAL_TIME = 3 * 60; // 3 minutes in seconds
+  const INITIAL_TIME = 8 * 60; // 8 minutes in seconds - extended for better emergency interaction
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [aiReply, setAiReply] = useState("");
   const [conversationHistory, setConversationHistory] = useState<any[]>([]);
@@ -92,7 +93,7 @@ export default function Emergency911() {
     }
   }, [listening, callActive]);
 
-  // 🕒 Timer
+  // 🕒 Timer with minimum score requirement
   useEffect(() => {
     if (!callActive) return;
   
@@ -100,7 +101,13 @@ export default function Emergency911() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          handleCompletion();
+          // Only complete if user has some interaction, otherwise extend time
+          if (questionCount > 0 || score > 0) {
+            handleCompletion();
+          } else {
+            // Extend time if no interaction yet
+            setTimeLeft(2 * 60); // Give 2 more minutes
+          }
           return 0;
         }
         return prev - 1;
@@ -108,17 +115,24 @@ export default function Emergency911() {
     }, 1000);
   
     return () => clearInterval(interval);
-  }, [callActive]);
+  }, [callActive, questionCount, score]);
   
 
   // ✅ Completion handler
   const handleCompletion = () => {
+    console.log("✅ Emergency 911 completed. Saving to localStorage.");
+    
+    // Save score using the utility function
+    saveScenarioScore({
+      cardId: "Emergency 911 Dispatcher",
+      score: score,
+      maxScore: maxScore
+    });
+    
     const completedBefore = localStorage.getItem("Emergency911(easy)_Completed") === "true";
-
     if (!completedBefore) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
-      localStorage.setItem("Emergency911(easy)_Completed", "true");
     }
 
     setShowCompletion(true);
@@ -165,6 +179,10 @@ export default function Emergency911() {
   const processUserInput = async (text: string) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
+
+    // Mute mic while processing to prevent overlapping speech
+    setMuted(true);
+    SpeechRecognition.stopListening();
 
     setConversationHistory((prev) => [
       ...prev,
@@ -229,6 +247,12 @@ export default function Emergency911() {
         audioQueueRef.current.shift();
         if (audioQueueRef.current.length > 0) {
           audioQueueRef.current[0].play();
+        } else {
+          // When all audio is finished, turn mic back on
+          if (muted && callActive) {
+            setMuted(false);
+            SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+          }
         }
       };
 
@@ -242,15 +266,15 @@ export default function Emergency911() {
   };
 
   const handleMuteAndSend = () => {
-    if (transcript.trim()) processUserInput(transcript.trim());
-    resetTranscript();
-
-    if (!muted) {
-      SpeechRecognition.stopListening();
-    } else {
-      SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+    // Always send transcript if there's content
+    if (transcript.trim()) {
+      processUserInput(transcript.trim());
+      resetTranscript();
     }
-    setMuted((prev) => !prev);
+
+    // Stop listening and set muted state
+    SpeechRecognition.stopListening();
+    setMuted(true);
   };
 
   const detailsProvided = Object.values(emergencyDetails).filter(Boolean).length;
@@ -339,12 +363,13 @@ export default function Emergency911() {
               >
                 📄 Download Report
               </button>
-              <button
-                className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
-                onClick={() => router.push("/")}
-              >
-                End Session
-              </button>
+                                <button
+                    className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
+                    onClick={() => router.push("/")}
+                  >
+                    End Session
+                  </button>
+
             </div>
           </div>
         </div>
@@ -428,12 +453,26 @@ export default function Emergency911() {
         </button>
 
         {callActive && (
-          <button
-            onClick={handleMuteAndSend}
-            className="px-6 py-3 bg-gradient-to-br from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
-          >
-            {muted ? "🔊 Unmute" : "🔇 Mute & Send"}
-          </button>
+          <>
+            {!muted ? (
+              <button
+                onClick={handleMuteAndSend}
+                className="px-6 py-3 bg-gradient-to-br from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+              >
+                🔇 Mute & Send
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setMuted(false);
+                  SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+                }}
+                className="px-6 py-3 bg-gradient-to-br from-green-600 to-green-800 hover:from-green-700 hover:to-green-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+              >
+                🔊 Unmute
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

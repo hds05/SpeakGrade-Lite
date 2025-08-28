@@ -1,12 +1,20 @@
-// ✅ src/app/api/level4/tts/route.js
-import { NextResponse } from "next/server";
+// ✅ src/app/api/weeklyCheckWithManager/tts/route.ts
+import { NextRequest, NextResponse } from "next/server";
+
+interface TTSRequest {
+  speaker?: string;
+  text?: string;
+  conversation?: {
+    text?: string;
+  };
+}
 
 // Charlie's voice ID for the manager character
 const CHARLIE_VOICE_ID = "WF4i4ZlVIKR1m1lLbJji";
 
-export async function POST(req) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json();
+    const body: TTSRequest = await req.json();
     const speaker = body.speaker || "Charlie";
     const text = body.text || (body.conversation && body.conversation.text) || "";
 
@@ -32,9 +40,9 @@ export async function POST(req) {
         body: JSON.stringify({
           text,
           voice_settings: {
-            stability: 0.5,       // Slightly more stable for professional tone
-            similarity_boost: 0.8, // Higher similarity for consistency
-            style: 0.3,          // Slightly professional style
+            stability: 0.6,       // More stable for professional tone
+            similarity_boost: 0.85, // Higher similarity for consistency
+            style: 0.4,          // Professional style
             use_speaker_boost: true,
           },
         }),
@@ -57,8 +65,9 @@ export async function POST(req) {
         "Access-Control-Allow-Origin": "*", // ✅ allow browser fetch
       },
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("Level 4 tts error", err);
-    return NextResponse.json({ error: err.message || err }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
