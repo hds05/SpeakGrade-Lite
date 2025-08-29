@@ -16,6 +16,7 @@ interface ComponentItem {
   path?: string;
   isLocked?: boolean;
   requiredScore?: number;
+  tags?: string[];
 }
 
 interface CardScore {
@@ -43,6 +44,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/weeklyCheckWithManager",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Work", "Easy"],
   },
   {
     id: 2,
@@ -52,6 +54,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/parkingTicket",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Life", "Easy"],
   },
   {
     id: 3,
@@ -62,6 +65,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/outletCustomer",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Life", "Easy"],
   },
   {
     id: 4,
@@ -71,6 +75,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/emergency911",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Life", "Easy"],
   },
   {
     id: 5,
@@ -81,16 +86,18 @@ const componentsList: ComponentItem[] = [
     path: "/cards/SpacecraftSimulation",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Fantasy", "Easy"],
   },
   {
     id: 6,
     title: "English Guide Bot",
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
-    image: "/cards/emergency-911.png", // TODO: Replace with ai-chatbot.png when available
+    image: "/cards/english-coach.png",
     path: "/cards/englishGuideBot",
     isLocked: true,
     requiredScore: 60,
+    tags: ["Education", "Easy"],
   },
   {
     id: 7,
@@ -101,6 +108,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/interviewRoom",
     isLocked: true,
     requiredScore: 60,
+    tags: ["Work", "Easy"],
   },
 ];
 
@@ -661,17 +669,44 @@ export default function ClientLayout({
                     >
                       {/* Card frame - Cloud-like */}
                       <div className="rounded-3xl bg-white/90 backdrop-blur-xl ring-1 ring-white/50 relative overflow-hidden">
-                        {/* Badge */}
-                        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
-                          <span
-                            className={`text-xs px-3 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-lg ${
-                              item.path
-                                ? "bg-gradient-to-r from-emerald-400 to-teal-500 text-white ring-1 ring-emerald-300/60"
-                                : "bg-gradient-to-r from-gray-400 to-gray-500 text-white ring-1 ring-gray-300/60"
-                            }`}
-                          >
-                            {item.path ? "Available" : "Coming Soon"}
-                          </span>
+                        {/* Tags */}
+                        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-wrap gap-1">
+                          {item.tags?.map((tag, index) => {
+                            let tagColor = "";
+                            switch (tag.toLowerCase()) {
+                              case "work":
+                                tagColor = "bg-gradient-to-r from-blue-500 to-blue-600 text-white ring-1 ring-blue-300/60";
+                                break;
+                              case "life":
+                                tagColor = "bg-gradient-to-r from-purple-500 to-purple-600 text-white ring-1 ring-purple-300/60";
+                                break;
+                              case "fantasy":
+                                tagColor = "bg-gradient-to-r from-pink-500 to-rose-600 text-white ring-1 ring-pink-300/60";
+                                break;
+                              case "education":
+                                tagColor = "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white ring-1 ring-indigo-300/60";
+                                break;
+                              case "easy":
+                                tagColor = "bg-gradient-to-r from-green-500 to-green-600 text-white ring-1 ring-green-300/60";
+                                break;
+                              default:
+                                tagColor = "bg-gradient-to-r from-gray-500 to-gray-600 text-white ring-1 ring-gray-300/60";
+                            }
+
+                            return (
+                              <span
+                                key={index}
+                                className={`text-xs px-2 py-1 rounded-full shadow-lg font-medium ${tagColor}`}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                          {!item.path && (
+                            <span className="text-xs px-2 py-1 rounded-full shadow-lg bg-gradient-to-r from-gray-400 to-gray-500 text-white ring-1 ring-gray-300/60 font-medium">
+                              Coming Soon
+                            </span>
+                          )}
                         </div>
 
                         {/* Score Display */}
