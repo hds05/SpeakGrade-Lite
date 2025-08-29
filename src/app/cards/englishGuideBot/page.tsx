@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Script from "next/script";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
@@ -48,17 +49,20 @@ export default function EnglishGuideBot() {
         {/* Background Image */}
         <div className="absolute inset-0 w-full h-full z-0">
           {/* Large screen image */}
-          <img
-            src="/bot-with-man.avif"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="SpeakGrade Background"
-            className="hidden sm:block w-full h-full object-cover animate__animated animate__fadeIn"
+            fill
+            className="hidden sm:block object-cover animate__animated animate__fadeIn"
+            priority
           />
 
           {/* Small screen image */}
-          <img
+          <Image
             src="https://as2.ftcdn.net/jpg/03/44/58/77/1000_F_344587784_tvDkmUpvgHnmYrUJAfTQqr2zST6KaC4J.jpg"
             alt="SpeakGrade Mobile Background"
-            className="block sm:hidden w-full h-full object-cover animate__animated animate__fadeIn"
+            fill
+            className="block sm:hidden object-cover animate__animated animate__fadeIn"
           />
 
           <div className="absolute inset-0 bg-black/70" />
@@ -90,10 +94,13 @@ export default function EnglishGuideBot() {
             {/* Title */}
             <div className="z-20 relative text-center space-y-4">
               <div className="flex justify-center mb-4 sm:mb-6">
-                <img
-                  src="/speakgrade_logo.png"
+                <Image
+                  src="/cards/emergency-911.png"
                   alt="SpeakGrade Logo"
+                  width={80}
+                  height={80}
                   className="h-16 w-16 sm:h-20 sm:w-20 object-cover rounded-full border-4 border-white/20 shadow-xl"
+                  priority
                 />
               </div>
               <h1 className="font-extrabold text-[clamp(1.8rem,5vw,3rem)] leading-snug">

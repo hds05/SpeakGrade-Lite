@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Header from "@/app/components/header/page";
 import Loader from "@/app/components/loader/page";
 import Confetti from "react-confetti";
@@ -114,9 +115,9 @@ export default function InterviewRoom() {
   };
 
   const interviewers = [
-    { name: "Bob", image: "/bob.webp" },
-    { name: "Charlie", image: "/old-man-avatar.png" },
-    { name: "Alice", image: "/alice.jpg" },
+    { name: "Bob", image: "/avatars/bob.webp" },
+    { name: "Charlie", image: "/avatars/old-man-avatar.png" },
+    { name: "Alice", image: "/avatars/alice.jpg" },
   ];
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -592,9 +593,11 @@ const playVoice = async (text: string, speaker: string) => {
                       {interviewers.map((interviewer, idx) => (
                         <div key={idx} className="flex flex-col items-center">
                           <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                            <img
+                            <Image
                               src={interviewer.image}
                               alt={interviewer.name}
+                              width={144}
+                              height={144}
                               className="object-cover w-full h-full"
                             />
                           </div>
@@ -610,9 +613,11 @@ const playVoice = async (text: string, speaker: string) => {
                     <div className="flex flex-col items-center z-[100] mt-8">
                       {micActive && <SoundWave speaking={listening} />}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                        <img
-                          src="/self-icon.png"
+                        <Image
+                          src="/avatars/self-icon.png"
                           alt="You"
+                          width={112}
+                          height={112}
                           className="object-cover w-full h-full"
                         />
                       </div>

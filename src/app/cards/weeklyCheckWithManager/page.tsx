@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Header from "@/app/components/header/page";
 import Loader from "@/app/components/loader/page";
 import Confetti from "react-confetti";
@@ -92,7 +93,7 @@ export default function WeeklyCheck() {
     generatePDFReport(reportData);
   };
 
-  const manager = { name: "Charlie", image: "/old-man-avatar.png" };
+  const manager = { name: "Charlie", image: "/avatars/old-man-avatar.png" };
 
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -492,9 +493,11 @@ export default function WeeklyCheck() {
                   {/* Manager */}
                   <div className="flex flex-col items-center z-[100] mt-8">
                     <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">
-                      <img
+                      <Image
                         src={manager.image}
                         alt={manager.name}
+                        width={160}
+                        height={160}
                         className="object-cover w-full h-full"
                       />
                     </div>
@@ -508,9 +511,11 @@ export default function WeeklyCheck() {
                   <div className="flex flex-col items-center z-[100] mt-8">
                     {micActive && <SoundWave speaking={listening} />}
                     <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                      <img
-                        src="/self-icon.png"
+                      <Image
+                        src="/avatars/self-icon.png"
                         alt="You"
+                        width={112}
+                        height={112}
                         className="object-cover w-full h-full"
                       />
                     </div>

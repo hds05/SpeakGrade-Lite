@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Loader from "@/app/components/loader/page";
 import SoundWave from "@/app/components/soundWave/page";
 import Confetti from "react-confetti";
@@ -84,7 +85,7 @@ export default function OutletCustomer() {
     generatePDFReport(reportData);
   };
 
-  const cashier = { name: "Sarah", image: "/alice.jpg" }; // Using Alice's image for the cashier
+  const cashier = { name: "Sarah", image: "/avatars/alice.jpg" }; // Using Alice's image for the cashier
 
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -532,9 +533,11 @@ export default function OutletCustomer() {
                     {/* Cashier */}
                     <div className="flex flex-col items-center z-[100] mt-8">
                       <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-green-500 bg-white shadow-md overflow-hidden">
-                        <img
+                        <Image
                           src={cashier.image}
                           alt={cashier.name}
+                          width={160}
+                          height={160}
                           className="object-cover w-full h-full"
                         />
                       </div>
@@ -548,9 +551,11 @@ export default function OutletCustomer() {
                     <div className="flex flex-col items-center z-[100] mt-8">
                       {micActive && <SoundWave speaking={listening} />}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">
-                        <img
-                          src="/self-icon.png"
+                        <Image
+                          src="/avatars/self-icon.png"
                           alt="You"
+                          width={112}
+                          height={112}
                           className="object-cover w-full h-full"
                         />
                       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, ReactNode } from "react";
+import Image from "next/image";
 import Loader from "./app/components/loader/page";
 import Header from "./app/components/header/page";
 import Link from "next/link";
@@ -38,8 +39,7 @@ const componentsList: ComponentItem[] = [
     id: 1,
     title: "Weekly Check with Manager",
     description: "Workplace conversation with your manager.",
-    image:
-      "https://png.pngtree.com/png-vector/20250110/ourmid/pngtree-marketing-manager-3d-icon-with-sleek-design-isolated-on-white-background-png-image_15137962.png",
+    image: "/cards/weekly-manager.png",
     path: "/cards/weeklyCheckWithManager",
     isLocked: false,
     requiredScore: 0,
@@ -48,8 +48,7 @@ const componentsList: ComponentItem[] = [
     id: 2,
     title: "Parking Ticket Encounter",
     description: "Police encounter - Explain your parking situation.",
-    image:
-      "https://thumbs.dreamstime.com/b/claymation-police-dog-parking-ticket-scene-detailed-look-stop-motion-animation-captivating-still-image-short-film-395049218.jpg",
+    image: "/cards/parking-ticket.png",
     path: "/cards/parkingTicket",
     isLocked: false,
     requiredScore: 0,
@@ -59,7 +58,7 @@ const componentsList: ComponentItem[] = [
     title: "Outlet Customer Service",
     description:
       "You're a customer at Fashion Outlet with multiple issues that need to be resolved at checkout.",
-    image: "outletConvo.png",
+    image: "/cards/outlet-customer.png",
     path: "/cards/outletCustomer",
     isLocked: false,
     requiredScore: 0,
@@ -68,8 +67,7 @@ const componentsList: ComponentItem[] = [
     id: 4,
     title: "Emergency 911 Dispatcher",
     description: "You have called 911. Tell them your Emergency.",
-    image:
-      "https://cdn3d.iconscout.com/3d/premium/thumb/emergency-call-12217661-9967041.png",
+    image: "/cards/emergency-911.png",
     path: "/cards/emergency911",
     isLocked: false,
     requiredScore: 0,
@@ -79,8 +77,7 @@ const componentsList: ComponentItem[] = [
     title: "Spacecraft Simulation",
     description:
       "Take control of a spacecraft and experience the thrill of space travel.",
-    image:
-      "https://png.pngtree.com/png-clipart/20250109/original/pngtree-spacecraft-on-launch-platform-with-equipment-png-image_19358931.png",
+    image: "/cards/spacecraft.png",
     path: "/cards/SpacecraftSimulation",
     isLocked: false,
     requiredScore: 0,
@@ -90,8 +87,7 @@ const componentsList: ComponentItem[] = [
     title: "English Guide Bot",
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
-    image:
-      "aiChatBot-card-Img.jpg",
+    image: "/cards/emergency-911.png", // TODO: Replace with ai-chatbot.png when available
     path: "/cards/englishGuideBot",
     isLocked: true,
     requiredScore: 60,
@@ -101,8 +97,7 @@ const componentsList: ComponentItem[] = [
     title: "Interview Room",
     description:
       "You are in a professional interview room with three interviewers. ",
-    image:
-      "https://t4.ftcdn.net/jpg/03/34/41/37/360_F_334413713_bZTbjUAzd6ZhedjKLWGpYORJVIx4f0X7.jpg",
+    image: "/cards/interview-room.png",
     path: "/cards/interviewRoom",
     isLocked: true,
     requiredScore: 60,
@@ -466,95 +461,133 @@ export default function ClientLayout({
       {/* Floating Clouds Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div>
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={400}
+            height={160}
             className="absolute top-9 left-2 w-32 h-16 sm:w-48 sm:h-24 md:w-64 md:h-32 lg:w-96 lg:h-32 xl:w-[400px] xl:h-40 animate-floatX"
+            priority
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={320}
+            height={128}
             className="absolute top-20 right-2 w-24 h-12 sm:w-32 sm:h-16 md:w-48 md:h-24 lg:w-64 lg:h-24 xl:w-80 xl:h-32 opacity-100 animate-floatX"
+            priority
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={224}
+            height={96}
             className="absolute top-40 left-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-48 lg:h-20 xl:w-56 xl:h-24 opacity-85 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={288}
+            height={112}
             className="absolute top-60 right-1/9 w-28 h-14 sm:w-36 sm:h-18 md:w-48 md:h-24 lg:w-56 lg:h-28 xl:w-72 xl:h-28 opacity-80 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={224}
+            height={80}
             className="absolute bottom-18 right-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-40 md:h-20 lg:w-48 lg:h-20 xl:w-56 xl:h-20 opacity-75 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={500}
+            height={160}
             className="absolute bottom-16 left-1/6 w-40 h-20 sm:w-64 sm:h-32 md:w-96 md:h-40 lg:w-[400px] lg:h-40 xl:w-[500px] xl:h-40 opacity-98 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={384}
+            height={128}
             className="absolute top-32 right-1/4 w-32 h-16 sm:w-48 sm:h-24 md:w-64 md:h-32 lg:w-80 lg:h-32 xl:w-96 xl:h-32 opacity-85 animate-drift"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={128}
+            height={64}
             className="absolute top-80 left-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-70 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={112}
+            height={56}
             className="absolute top-72 right-2 w-12 h-6 sm:w-16 sm:h-8 md:w-20 md:h-10 lg:w-24 lg:h-12 xl:w-28 xl:h-14 opacity-65 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={128}
+            height={64}
             className="absolute top-64 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-60 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={112}
+            height={56}
             className="absolute top-48 left-2 w-12 h-6 sm:w-16 sm:h-8 md:w-20 md:h-10 lg:w-24 lg:h-12 xl:w-28 xl:h-14 opacity-70 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={120}
+            height={60}
             className="absolute top-56 right-2 w-14 h-7 sm:w-18 sm:h-9 md:w-22 md:h-11 lg:w-26 lg:h-13 xl:w-30 xl:h-15 opacity-75 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={144}
+            height={72}
             className="absolute top-24 left-1/2 w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 lg:w-32 lg:h-16 xl:w-36 xl:h-18 opacity-90 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={128}
+            height={64}
             className="absolute top-36 right-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-80 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={136}
+            height={68}
             className="absolute top-44 left-2 w-18 h-9 sm:w-22 sm:h-11 md:w-26 md:h-13 lg:w-30 lg:h-15 xl:w-34 xl:h-17 opacity-85 animate-floatX"
           />
 
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={224}
+            height={112}
             className="absolute bottom-20 left-3 w-24 h-12 sm:w-32 sm:h-16 md:w-40 md:h-20 lg:w-48 lg:h-24 xl:w-56 xl:h-28 opacity-90 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={208}
+            height={104}
             className="absolute bottom-32 right-1/4 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-44 lg:h-22 xl:w-52 xl:h-26 opacity-85 animate-floatX"
           />
-          <img
-            src="cartooncloud.webp"
+          <Image
+            src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
+            width={128}
+            height={64}
             className="absolute bottom-16 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-80 animate-floatX"
           />
         </div>
@@ -565,10 +598,13 @@ export default function ClientLayout({
       {/* Foreground */}
       <div className="relative z-10 w-full h-full overflow-y-auto">
         <Header />
-        <img
+        <Image
           src="https://img.freepik.com/premium-vector/cute-yellow-sun-rise-cloud-cartoon-illustration-isolated-flat-vector_1167562-13607.jpg"
-          alt=""
+          alt="Decorative sun"
+          width={120}
+          height={120}
           className="absolute top-3 my-10 right-32 sm:top-[30px] sm:right-80 md:top-[5px] rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatY"
+          priority
         />
         <main className="w-full flex flex-col items-center py-6 sm:py-8 lg:py-12 px-3 sm:px-6">
           <div className="w-full max-w-7xl">
@@ -650,10 +686,13 @@ export default function ClientLayout({
                         {/* Image */}
                         <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4">
                           <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 p-2">
-                            <img
+                            <Image
                               src={item.image}
                               alt={item.title}
+                              width={300}
+                              height={200}
                               className="object-contain h-full transition-transform duration-500 group-hover:scale-110"
+                              priority={item.id <= 3} // Prioritize first 3 cards
                             />
                           </div>
                         </div>
@@ -825,9 +864,11 @@ export default function ClientLayout({
                           {/* Image */}
                           <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4">
                             <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 p-2">
-                              <img
+                              <Image
                                 src={item.image}
                                 alt={item.title}
+                                width={300}
+                                height={200}
                                 className="object-contain h-full transition-transform duration-500"
                               />
                             </div>

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import Header from "@/app/components/header/page";
 import Loader from "@/app/components/loader/page";
 import SoundWave from "@/app/components/soundWave/page";
@@ -110,7 +111,7 @@ export default function ParkingTicket(): React.JSX.Element {
     generatePDFReport(reportData);
   };
 
-  const officer: Officer = { name: "Officer Davis", image: "/old-man-avatar.png" }; // We'll use the same avatar for now
+  const officer: Officer = { name: "Officer Davis", image: "/avatars/old-man-avatar.png" }; // We'll use the same avatar for now
 
   // Unlock audio context on first user interaction
   const unlockAudio = (): void => {
@@ -602,9 +603,11 @@ export default function ParkingTicket(): React.JSX.Element {
                   <div className="flex flex-wrap items-start justify-center gap-8 z-[100]">
                     <div className="flex flex-col items-center">
                       <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">
-                        <img
+                        <Image
                           src={officer.image}
                           alt={officer.name}
+                          width={144}
+                          height={144}
                           className="object-cover w-full h-full"
                         />
                       </div>
@@ -618,9 +621,11 @@ export default function ParkingTicket(): React.JSX.Element {
                   <div className="flex flex-col items-center z-[100] mt-8">
                     {micActive && <SoundWave speaking={listening} />}
                     <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                      <img
-                        src="/self-icon.png"
+                      <Image
+                        src="/avatars/self-icon.png"
                         alt="You"
+                        width={112}
+                        height={112}
                         className="object-cover w-full h-full"
                       />
                     </div>
