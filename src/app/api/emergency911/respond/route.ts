@@ -6,12 +6,6 @@ interface Message {
   speaker?: string;
 }
 
-interface ScoreData {
-  points: number;
-  maxPoints: number;
-  feedback: string;
-}
-
 interface ConversationResponse {
   speaker: string;
   text: string;
@@ -21,123 +15,49 @@ interface RequestBody {
   transcript?: string;
   conversationHistory?: Message[];
   questionCount?: number;
-  emergencyDetails?: {
-    type: boolean;
-    location: boolean;
-    condition: boolean;
-    confirmation: boolean;
-  };
 }
 
 // Add this function before POST
 async function callOpenAI(messages: Message[]): Promise<string> {
+  console.log("🔑 OpenAI API Key present:", !!process.env.OPENAI_API_KEY);
+  console.log("📡 Making request to OpenAI with", messages.length, "messages");
+  
+  const requestBody = {
+    model: "gpt-4o-mini",
+    messages,
+    temperature: 0.2,
+    max_tokens: 100,
+    top_p: 0.9,
+    frequency_penalty: 0.1,
+    presence_penalty: 0.1,
+  };
+  
+  console.log("📤 Request body:", JSON.stringify(requestBody, null, 2));
+  
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.3,
-      max_tokens: 200,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+  console.log("📥 OpenAI response status:", res.status, res.statusText);
+  
   if (!res.ok) {
-    throw new Error(`OpenAI API error: ${await res.text()}`);
+    const errorText = await res.text();
+    console.error("❌ OpenAI API error response:", errorText);
+    throw new Error(`OpenAI API error: ${res.status} - ${errorText}`);
   }
 
   const payload = await res.json();
-  return payload.choices?.[0]?.message?.content ?? "";
-}
-
-// ✅ Scoring function for emergency 911 responses
-async function scoreUserResponse(userMessage: string, questionContext: string, questionCount: number): Promise<ScoreData> {
-  if (!userMessage || userMessage.trim().length < 3) {
-    return { points: 0, maxPoints: 1, feedback: "Response too short or unclear" };
-  }
-
-  const scoringPrompt: Message = {
-    role: "system",
-    content: `You are evaluating a caller's response to a 911 dispatcher in an emergency situation.
-
-    SCORING CRITERIA:
-    - 1 point: Response provides clear, specific, and relevant emergency information
-    - 0.5 points: Response is adequate but could be more specific
-    - 0 points: Response is unclear, irrelevant, or doesn't help the emergency
-
-    EVALUATION FACTORS:
-    - Clarity of communication
-    - Relevance to emergency situation
-    - Specificity of details provided
-    - Calmness under pressure
-    - Cooperation with dispatcher
-
-    EXAMPLES:
-    Question: "What's your emergency?"
-    - Good (1 point): "There's been a car accident on Main Street and Broadway, two cars involved"
-    - Adequate (0.5 points): "Car accident, need help"
-    - Poor (0 points): "I don't know, something bad happened"
-
-    Question: "Where are you located?"
-    - Good (1 point): "I'm at 123 Main Street, near the intersection with Oak Avenue"
-    - Adequate (0.5 points): "Main Street"
-    - Poor (0 points): "I'm not sure"
-
-    Respond with JSON: {"points": 0, 0.5, or 1, "maxPoints": 1, "feedback": "brief explanation"}`
-  };
-
-  const userPrompt: Message = {
-    role: "user",
-    content: `Previous question/context: "${questionContext}"
-    Caller's response: "${userMessage}"
-    Question number: ${questionCount}
-    
-    Score this response based on clarity, relevance, and helpfulness in an emergency situation.`
-  };
-
-  try {
-    const response = await callOpenAI([scoringPrompt, userPrompt]);
-    const scoreData = JSON.parse(response);
-    return {
-      points: scoreData.points || 0,
-      maxPoints: 1,
-      feedback: scoreData.feedback || ""
-    };
-  } catch (error) {
-    console.log("⚠️ OpenAI scoring failed, using fallback:", error);
-    // Fallback scoring based on response quality
-    const lowerResponse = userMessage.toLowerCase();
-    
-    // More generous scoring for emergency responses - any attempt to communicate is valuable
-    if (lowerResponse.length > 20 && !lowerResponse.includes("i don't know") && !lowerResponse.includes("um")) {
-      return { points: 1, maxPoints: 1, feedback: "Excellent emergency response - clear and detailed" };
-    } else if (lowerResponse.length > 12) {
-      return { points: 0.8, maxPoints: 1, feedback: "Good emergency response - clear communication" };
-    } else if (lowerResponse.length > 6) {
-      return { points: 0.6, maxPoints: 1, feedback: "Adequate emergency response - basic information provided" };
-    } else {
-      return { points: 0.3, maxPoints: 1, feedback: "Emergency response attempted - any communication helps" };
-    }
-  }
-}
-
-// ✅ Determine which emergency details have been provided
-function updateEmergencyDetails(conversationHistory: Message[], currentDetails: any): any {
-  const userMessages = conversationHistory
-    .filter((msg: any) => msg.role === "user")
-    .map((msg: any) => msg.content.toLowerCase());
+  console.log("📦 OpenAI response payload:", JSON.stringify(payload, null, 2));
   
-  const allText = userMessages.join(" ");
+  const content = payload.choices?.[0]?.message?.content ?? "";
+  console.log("📝 Extracted content:", content);
   
-  return {
-    type: currentDetails?.type || (allText.includes("accident") || allText.includes("fire") || allText.includes("medical") || allText.includes("emergency")),
-    location: currentDetails?.location || (allText.includes("street") || allText.includes("avenue") || allText.includes("road") || allText.includes("address")),
-    condition: currentDetails?.condition || (allText.includes("hurt") || allText.includes("bleeding") || allText.includes("conscious") || allText.includes("breathing")),
-    confirmation: currentDetails?.confirmation || (allText.includes("yes") || allText.includes("okay") || allText.includes("understand") || allText.includes("stay"))
-  };
+  return content;
 }
 
 // ✅ Your POST handler
@@ -146,7 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body: RequestBody = await req.json();
     console.log("✅ Received body in Emergency911 /respond:", body);
 
-    const { transcript, conversationHistory = [], questionCount = 0, emergencyDetails = {} } = body;
+    const { transcript, conversationHistory = [], questionCount = 0 } = body;
 
     // Emergency context that the AI dispatcher should reference
     const emergencyContext = `
@@ -159,103 +79,103 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     - Current question count: ${questionCount}
     `;
 
-    // Score user's response if they provided one
-    let scoreData: ScoreData = { points: 0, maxPoints: 1, feedback: "" };
-    
-    if (transcript && transcript.trim()) {
-      const lastDispatcherQuestion = conversationHistory
-        .filter((msg) => msg.role === "assistant")
-        .pop()?.content || "initial greeting";
-      
-      scoreData = await scoreUserResponse(transcript, lastDispatcherQuestion, questionCount);
-      console.log("📊 Emergency caller score:", scoreData);
-    }
-
-    // Update emergency details based on conversation
-    const updatedEmergencyDetails = updateEmergencyDetails(conversationHistory, emergencyDetails);
-    const detailsProvided = Object.values(updatedEmergencyDetails).filter(Boolean).length;
-
     const systemMsg: Message = {
       role: "system",
-      content: `You are a 911 emergency dispatcher. Your role is to:
+      content: `You are a 9-11 dispatcher. Be brief, direct, and professional. Ask ONE question at a time.
 
-      ${emergencyContext}
+      Current question: ${questionCount}
+      
+      Key topics to cover:
+      1. What happened
+      2. Where (location)
+      3. Who's hurt, or if not what other emergency is it
+      4. Stay on line
+      5. Slightly acknowledge the caller's response
 
-      INSTRUCTIONS:
-      - Stay calm and professional
-      - Ask ONE clear question at a time
-      - Get emergency type, location, and condition
-      - Provide reassurance and clear instructions
-      - Confirm caller understands to stay on the line
-      - Current question count: ${questionCount}
-      - Emergency details provided: ${detailsProvided}/4
+      Examples:
+      - "Nine one one, what's your emergency?"
+      - "Where is this happening?"
+      - "Is anyone hurt?"
+      - "Help is on the way."
 
-      DISPATCHER PERSONALITY:
-      - Calm and professional
-      - Clear and direct communication
-      - Reassuring but efficient
-      - Focused on getting essential information
+      Keep responses under 27 words. Be realistic but supportive.
 
-      TOPICS TO COVER:
-      1. Emergency type (what happened)
-      2. Location (where is the emergency)
-      3. Condition (are people hurt, how bad)
-      4. Confirmation (stay on line, help is coming)
-
-      EXAMPLE RESPONSES:
-      - "911, what's your emergency?"
-      - "Can you tell me exactly where this is happening?"
-      - "Are there any injuries? How many people are hurt?"
-      - "Please stay on the line. Help is on the way."
-
-      Respond with a JSON object: {"speaker":"911 Dispatcher","text":"your response"}`,
+      JSON format: {"speaker":"911 Dispatcher","text":"brief response"}`,
     };
     
     const userPrompt: Message = {
       role: "user",
       content: transcript
-        ? `Caller said: "${transcript}". ${detailsProvided < 4 ? "Ask your next question to get more emergency details." : "Provide final instructions and reassurance."}`
-        : `Start by asking what the emergency is.`,
+        ? `Caller said: "${transcript}". Continue the emergency call conversation naturally.`
+        : `Start the emergency call by asking what the emergency is.`,
     };
     
     let content;
     try {
+      console.log("📤 Calling OpenAI with messages:", {
+        systemMsg: systemMsg.content.substring(0, 200) + "...",
+        historyLength: conversationHistory.length,
+        userPrompt: userPrompt.content,
+        questionCount
+      });
+      
       content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-      console.log("🧠 GPT raw response:", content);
+      
+      console.log("🧠 GPT raw response received:");
+      console.log("- Type:", typeof content);
+      console.log("- Length:", content?.length || 0);
+      console.log("- Content:", content);
+      
     } catch (error) {
-      console.log("⚠️ OpenAI API call failed, using fallback:", error);
+      console.error("❌ OpenAI API call failed:");
+      console.error("- Error type:", typeof error);
+      console.error("- Error message:", error instanceof Error ? error.message : error);
+      console.error("- Full error:", error);
       content = null;
     }
 
     let json: ConversationResponse | null = null;
     if (content) {
+      console.log("🔄 Attempting to parse JSON response...");
       try {
         json = JSON.parse(content);
-      } catch {
+        console.log("✅ Successfully parsed JSON:", json);
+      } catch (parseError) {
+        console.warn("⚠️ Direct JSON parse failed:", parseError instanceof Error ? parseError.message : parseError);
+        console.log("🔍 Trying to extract JSON from response...");
+        
         // Try to extract JSON from response
         const match = content.match(/\{[\s\S]*?\}/);
         if (match) {
+          console.log("🔍 Found potential JSON match:", match[0]);
           try {
             json = JSON.parse(match[0]);
-          } catch {
+            console.log("✅ Successfully parsed extracted JSON:", json);
+          } catch (extractError) {
+            console.error("❌ Failed to parse extracted JSON:", extractError instanceof Error ? extractError.message : extractError);
             json = null;
           }
+        } else {
+          console.error("❌ No JSON pattern found in response");
         }
       }
+    } else {
+      console.warn("⚠️ No content received from OpenAI");
     }
 
-    // Fallback responses based on question count and emergency details
+    // Fallback responses based on question count
     if (!json) {
-      console.warn("⚠️ GPT response not JSON. Using fallback.");
+      console.warn("⚠️ 🔴 USING FALLBACK - No valid JSON response from OpenAI");
+      console.warn("Reason: Either API failed or response couldn't be parsed as JSON");
       const fallbackQuestions = [
-        "911, what's your emergency?",
+        "Nine one one, what's your emergency?",
         "Can you tell me exactly where this is happening?",
         "What type of emergency is this?",
         "Are there any injuries? How many people are hurt?",
-        "Can you see any emergency vehicles or personnel?",
+        "Is anyone in immediate danger right now?",
         "Please stay on the line. Help is on the way.",
         "Emergency services are responding. Stay calm and stay on the line.",
-        "Help is arriving. Please stay on the line until they get there.",
+        "Help is arriving. Please remain on the line until they get there.",
       ];
       
       const questionIndex = Math.min(questionCount, fallbackQuestions.length - 1);
@@ -265,26 +185,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
     }
 
-        // Calculate progress based on question count and emergency details
-        const totalQuestions = 8; // Total questions in the scenario
-        const currentProgress = Math.min(questionCount, totalQuestions);
-        const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
-        
-        console.log("📤 Emergency911 /respond sending:", JSON.stringify(json, null, 2));
-        console.log("📊 Score data:", scoreData);
-        console.log("🚨 Emergency details:", updatedEmergencyDetails);
-        console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+    console.log("📤 Emergency911 /respond sending:", JSON.stringify(json, null, 2));
     
-        return NextResponse.json({ 
-          conversation: json,
-          score: scoreData,
-          emergencyDetails: updatedEmergencyDetails,
-          progress: {
-            current: currentProgress,
-            total: totalQuestions,
-            percentage: overallProgress
-          }
-        });
+    return NextResponse.json({ 
+      conversation: json
+    });
   } catch (err) {
     console.error("❌ Emergency911 respond error", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

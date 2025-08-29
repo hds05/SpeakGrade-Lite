@@ -8,26 +8,17 @@ import { motion } from "framer-motion";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
-import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function Emergency911() {
   const [callActive, setCallActive] = useState(false);
   const [muted, setMuted] = useState(false);
-  const INITIAL_TIME = 8 * 60; // 8 minutes in seconds - extended for better emergency interaction
+  const INITIAL_TIME = 75; // 45 seconds for emergency call simulation
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [aiReply, setAiReply] = useState("");
   const [conversationHistory, setConversationHistory] = useState<any[]>([]);
   const [showCompletion, setShowCompletion] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
-  const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(0);
-  const [emergencyDetails, setEmergencyDetails] = useState({
-    type: false,
-    location: false,
-    condition: false,
-    confirmation: false,
-  });
   const {
     transcript = "",
     resetTranscript,
@@ -35,8 +26,49 @@ export default function Emergency911() {
   } = useSpeechRecognition();
 
   const isProcessingRef = useRef(false);
-  const audioQueueRef = useRef<HTMLAudioElement[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const finalMessagePlayingRef = useRef(false);
   const router = useRouter();
+
+  // Helper function to check if error is meaningful
+  const isEmptyError = (err: any): boolean => {
+    return !err || 
+           (typeof err === 'object' && Object.keys(err).length === 0) ||
+           err.toString() === '[object Object]' ||
+           err.toString() === '{}';
+  };
+
+  // Preprocess text for better TTS pronunciation
+  const preprocessTextForTTS = (text: string): string => {
+    return text
+      // Replace 911 with "nine one one" for proper pronunciation
+      .replace(/\b911\b/g, 'nine one one')
+      // Replace other emergency numbers if needed
+      .replace(/\b9-1-1\b/g, 'nine one one')
+      // Replace dispatcher-specific terms
+      .replace(/\bdispatcher\b/gi, 'dispatcher')
+      .replace(/\bemergency\b/gi, 'emergency')
+      // Replace common address numbers that might be misread
+      .replace(/\b(\d)-(\d)-(\d)\b/g, '$1 $2 $3')
+      // Replace phone number patterns to be read digit by digit for clarity
+      .replace(/\b(\d{3})-(\d{3})-(\d{4})\b/g, (match, area, prefix, number) => {
+        return `${area.split('').join(' ')} ${prefix.split('').join(' ')} ${number.split('').join(' ')}`;
+      })
+      // Replace other common emergency/medical patterns that need special pronunciation
+      .replace(/\bCPR\b/gi, 'C P R')
+      .replace(/\bEMS\b/gi, 'E M S')
+      .replace(/\bEMT\b/gi, 'E M T')
+      .replace(/\bETA\b/gi, 'E T A')
+      .replace(/\bDOA\b/gi, 'D O A')
+      // Address common numbers that might be misread
+      .replace(/\b(\d{1,4})\s+(st|nd|rd|th)\b/gi, (match, num, suffix) => {
+        return `${num} ${suffix}`;
+      })
+      // Handle street names with numbers
+      .replace(/\b(\d+)(st|nd|rd|th)\s+street\b/gi, (match, num, suffix) => {
+        return `${num} ${suffix} street`;
+      });
+  };
 
   // ✅ Load completion state from localStorage
   useEffect(() => {
@@ -46,9 +78,41 @@ export default function Emergency911() {
     }
   }, []);
 
+  // 🔊 Play final message when completion screen shows (from timer end)
+  useEffect(() => {
+    if (showCompletion && !localStorage.getItem("Emergency911(easy)_Completed_Before") && !finalMessagePlayingRef.current) {
+      // This is a fresh completion, play the final message
+      const finalMessage = "Help is on the way, they will arrive very soon";
+      setAiReply(finalMessage);
+      
+      // Mark that we've shown this completion to avoid replaying on refresh
+      localStorage.setItem("Emergency911(easy)_Completed_Before", "true");
+      finalMessagePlayingRef.current = true;
+      
+      // Play final message after a short delay to ensure screen is shown
+      setTimeout(async () => {
+        try {
+          await playFinalMessage(finalMessage);
+        } catch (error) {
+          console.error("Error playing final message:", error);
+        } finally {
+          finalMessagePlayingRef.current = false;
+        }
+      }, 500);
+    }
+  }, [showCompletion]);
+
   // 🔊 Start/Stop call
   const toggleCall = async () => {
     if (callActive) {
+      // Manual end call - stop everything immediately
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.src = "";
+        currentAudioRef.current = null;
+      }
+      finalMessagePlayingRef.current = false;
       endCall();
     } else {
       if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -64,17 +128,14 @@ export default function Emergency911() {
       setTimeLeft(INITIAL_TIME);
       setConversationHistory([]);
       setQuestionCount(0);
-      setScore(0);
-      setMaxScore(0);
-      setEmergencyDetails({
-        type: false,
-        location: false,
-        condition: false,
-        confirmation: false,
-      });
-      SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+      setMuted(true); // Start muted, will unmute after first AI response
+      setShowCompletion(false); // Ensure completion screen is hidden
+      
+      // Clear the completion marker for fresh final message
+      localStorage.removeItem("Emergency911(easy)_Completed_Before");
+      finalMessagePlayingRef.current = false;
 
-      const greeting = "911, what's your emergency?";
+      const greeting = "911, what's your emergency?"; // Will be processed to "nine one one" by TTS preprocessing
       handleAiReply(greeting);
       setConversationHistory([{ role: "assistant", content: greeting, speaker: "911 Dispatcher" }]);
     }
@@ -84,16 +145,17 @@ export default function Emergency911() {
     setCallActive(false);
     SpeechRecognition.stopListening();
     resetTranscript();
+    
+    // Only stop audio if we're not showing completion (final message might be playing)
+    if (!showCompletion && currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
   };
 
-  // 🎤 Restart listening if dropped
-  useEffect(() => {
-    if (callActive && !listening) {
-      SpeechRecognition.startListening({ continuous: true, language: "en-US" });
-    }
-  }, [listening, callActive]);
-
-  // 🕒 Timer with minimum score requirement
+  // 🕒 Timer 
   useEffect(() => {
     if (!callActive) return;
   
@@ -101,13 +163,8 @@ export default function Emergency911() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          // Only complete if user has some interaction, otherwise extend time
-          if (questionCount > 0 || score > 0) {
+          // Complete the call when time is up
             handleCompletion();
-          } else {
-            // Extend time if no interaction yet
-            setTimeLeft(2 * 60); // Give 2 more minutes
-          }
           return 0;
         }
         return prev - 1;
@@ -115,20 +172,31 @@ export default function Emergency911() {
     }, 1000);
   
     return () => clearInterval(interval);
-  }, [callActive, questionCount, score]);
+  }, [callActive, questionCount]);
   
 
   // ✅ Completion handler
   const handleCompletion = () => {
-    console.log("✅ Emergency 911 completed. Saving to localStorage.");
+    console.log("✅ Emergency 911 completed. Stopping all audio and showing completion screen.");
     
-    // Save score using the utility function
-    saveScenarioScore({
-      cardId: "Emergency 911 Dispatcher",
-      score: score,
-      maxScore: maxScore
-    });
+    // Stop any ongoing audio immediately
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
     
+    // Stop mic and processing
+    setMuted(true);
+    SpeechRecognition.stopListening();
+    isProcessingRef.current = false;
+    setCallActive(false);
+    
+    // Mark scenario as completed
+    localStorage.setItem("Emergency911(easy)_Completed", "true");
+    
+    // Show completion screen immediately
     const completedBefore = localStorage.getItem("Emergency911(easy)_Completed") === "true";
     if (!completedBefore) {
       setShowConfetti(true);
@@ -136,33 +204,28 @@ export default function Emergency911() {
     }
 
     setShowCompletion(true);
-    endCall();
+    // Final message will be played by useEffect when showCompletion becomes true
   };
 
   // Generate and download PDF report
   const handleDownloadPDF = () => {
-    const detailsProvided = Object.values(emergencyDetails).filter(Boolean).length;
     const reportData = {
       title: "Emergency 911 Report",
       scenario: "Emergency Dispatcher Simulation",
       completionDate: new Date().toLocaleDateString(),
       conversationHistory: conversationHistory,
-      score: score,
-      maxScore: maxScore,
-      emergencyDetails: emergencyDetails,
-      detailsProvided: detailsProvided,
-      feedback: `You completed the emergency 911 dispatcher simulation with a score of ${score}/${maxScore}. You provided ${detailsProvided}/4 essential emergency details: ${emergencyDetails.type ? 'Emergency type ✓' : 'Emergency type ✗'}, ${emergencyDetails.location ? 'Location ✓' : 'Location ✗'}, ${emergencyDetails.condition ? 'Condition ✓' : 'Condition ✗'}, ${emergencyDetails.confirmation ? 'Confirmation ✓' : 'Confirmation ✗'}.`,
+      feedback: `You completed the emergency 911 dispatcher simulation. You successfully practiced emergency communication during the ${INITIAL_TIME} second simulation.`,
     };
     
     generatePDFReport(reportData);
   };
 
-  // 🎙️ When user stops talking
+  // 🎙️ When user stops talking - automatic like parking ticket
   useEffect(() => {
     if (!callActive || listening || !transcript.trim()) return;
     processUserInput(transcript.trim());
     resetTranscript();
-  }, [listening, transcript]);
+  }, [listening, transcript, callActive]);
 
   const getMicPermission = async () => {
     try {
@@ -180,7 +243,7 @@ export default function Emergency911() {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    // Mute mic while processing to prevent overlapping speech
+    // Stop mic while processing
     setMuted(true);
     SpeechRecognition.stopListening();
 
@@ -190,6 +253,10 @@ export default function Emergency911() {
     ]);
 
     try {
+      // Add timeout for API request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
+      
       const res = await fetch("/api/emergency911/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,9 +267,11 @@ export default function Emergency911() {
             { role: "user", content: text },
           ],
           questionCount: questionCount,
-          emergencyDetails: emergencyDetails,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       const data = await res.json();
       if (data.conversation?.text) {
@@ -210,21 +279,41 @@ export default function Emergency911() {
           ...prev,
           { role: "assistant", content: data.conversation.text, speaker: data.conversation.speaker },
         ]);
-        handleAiReply(data.conversation.text);
         
-        // Update scoring and emergency details
-        if (data.score) {
-          setScore(prev => prev + data.score.points);
-          setMaxScore(prev => prev + data.score.maxPoints);
+        // Update question count
           setQuestionCount(prev => prev + 1);
-        }
         
-        if (data.emergencyDetails) {
-          setEmergencyDetails(data.emergencyDetails);
-        }
+        // Play the AI response - mic will be re-enabled in handleAiReply after audio finishes
+        await handleAiReply(data.conversation.text);
+      } else {
+        // If no response, restart mic anyway with longer delay
+        setTimeout(() => {
+          if (callActive) {
+            setMuted(false);
+            SpeechRecognition.startListening({ 
+              continuous: true, 
+              interimResults: false,
+              language: "en-US" 
+            });
+          }
+        }, 2000);
       }
     } catch (err) {
       console.error("Error sending to /respond:", err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log("API request timed out");
+      }
+      // Restart mic on error with longer delay
+      setTimeout(() => {
+        if (callActive) {
+          setMuted(false);
+          SpeechRecognition.startListening({ 
+            continuous: true, 
+            interimResults: false,
+            language: "en-US" 
+          });
+        }
+      }, 2000);
     } finally {
       isProcessingRef.current = false;
     }
@@ -232,36 +321,213 @@ export default function Emergency911() {
 
   const handleAiReply = async (text: string) => {
     setAiReply(text);
+    
+    // Stop any previous audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
+    
     try {
+      // Preprocess text for better TTS pronunciation
+      const processedText = preprocessTextForTTS(text);
+      console.log("🗣️ TTS text processed:", text, "→", processedText);
+      
+      // Add timeout for TTS request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const res = await fetch("/api/emergency911/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: processedText }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`TTS failed: ${res.status}`);
+      }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      currentAudioRef.current = audio;
 
+      // Start playing audio and wait for it to complete
+      await new Promise<void>((resolve, reject) => {
       audio.onended = () => {
-        audioQueueRef.current.shift();
-        if (audioQueueRef.current.length > 0) {
-          audioQueueRef.current[0].play();
-        } else {
-          // When all audio is finished, turn mic back on
-          if (muted && callActive) {
+          console.log("🔊 AI finished speaking, will restart mic after delay");
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
+          
+          // Restart mic after audio finishes with longer delay
+          setTimeout(() => {
+            if (callActive) {
+              console.log("🎙️ Restarting microphone after AI speech");
             setMuted(false);
-            SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+              SpeechRecognition.startListening({ 
+                continuous: true, 
+                interimResults: false,
+                language: "en-US" 
+              });
+            }
+          }, 2500); // 2.5 second delay to ensure AI voice has completely stopped
+          resolve();
+        };
+        
+        audio.onerror = (e) => {
+          // Only log meaningful errors, not empty objects
+          if (!isEmptyError(e)) {
+            console.error("Audio error:", e);
+          } else {
+            console.log("🔊 Audio playback interrupted (expected during call end)");
           }
-        }
-      };
-
-      audioQueueRef.current.push(audio);
-      if (audioQueueRef.current.length === 1 && !muted) {
-        audio.play();
-      }
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
+          
+          // Restart mic even on audio error
+          setTimeout(() => {
+            if (callActive) {
+              console.log("🎙️ Restarting microphone after audio error");
+              setMuted(false);
+              SpeechRecognition.startListening({ 
+                continuous: true, 
+                interimResults: false,
+                language: "en-US" 
+              });
+            }
+          }, 2000);
+          resolve(); // Don't reject for expected interruptions
+        };
+        
+        audio.play().catch((err) => {
+          // Only log meaningful errors
+          if (!isEmptyError(err)) {
+            console.error("Audio play failed:", err);
+          } else {
+            console.log("🔊 Audio play interrupted (expected during call end)");
+          }
+          URL.revokeObjectURL(url);
+          
+          // Restart mic if audio play fails
+          setTimeout(() => {
+            if (callActive) {
+              console.log("🎙️ Restarting microphone after audio play failure");
+              setMuted(false);
+              SpeechRecognition.startListening({ 
+                continuous: true, 
+                interimResults: false,
+                language: "en-US" 
+              });
+            }
+          }, 1500);
+          resolve(); // Don't reject for expected interruptions
+        });
+      });
     } catch (err) {
-      console.error("TTS error:", err);
+      // Only log meaningful errors
+      if (err && err instanceof Error) {
+        if (err.name === 'AbortError') {
+          console.log("🔊 TTS request aborted (expected during call end)");
+        } else {
+          console.error("TTS error:", err.message || err);
+        }
+      } else if (!isEmptyError(err)) {
+        console.error("TTS error:", err);
+      } else {
+        console.log("🔊 TTS interrupted (expected during call end)");
+      }
+      // Don't auto-restart mic here - handled in processUserInput
+    }
+  };
+
+  // Play final message without restarting mic
+  const playFinalMessage = async (text: string): Promise<void> => {
+    console.log("🔊 Playing final emergency message:", text);
+    
+    // Ensure no other audio is playing
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
+    
+    try {
+      // Preprocess final message text for better TTS pronunciation
+      const processedText = preprocessTextForTTS(text);
+      console.log("🗣️ Final message TTS text processed:", text, "→", processedText);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const res = await fetch("/api/emergency911/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: processedText }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`Final TTS failed: ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      currentAudioRef.current = audio;
+
+      // Wait for final message to complete playing
+      await new Promise<void>((resolve, reject) => {
+        audio.onended = () => {
+          console.log("✅ Final emergency message completed");
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
+          resolve();
+        };
+        
+        audio.onerror = (e) => {
+          // Only log meaningful errors for final message
+          if (!isEmptyError(e)) {
+            console.error("Final message audio error:", e);
+          } else {
+            console.log("🔊 Final message audio interrupted");
+          }
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
+          resolve(); // Don't reject for final message interruptions
+        };
+        
+        audio.play().catch((err) => {
+          // Only log meaningful errors for final message
+          if (!isEmptyError(err)) {
+            console.error("Final message play failed:", err);
+          } else {
+            console.log("🔊 Final message play interrupted");
+          }
+          URL.revokeObjectURL(url);
+          resolve(); // Don't reject for final message interruptions
+        });
+      });
+    } catch (err) {
+      // Only log meaningful errors for final message
+      if (err && err instanceof Error) {
+        if (err.name === 'AbortError') {
+          console.log("🔊 Final message TTS aborted");
+        } else {
+          console.error("Final message TTS error:", err.message || err);
+        }
+      } else if (!isEmptyError(err)) {
+        console.error("Final message TTS error:", err);
+      } else {
+        console.log("🔊 Final message TTS interrupted");
+      }
     }
   };
 
@@ -276,8 +542,6 @@ export default function Emergency911() {
     SpeechRecognition.stopListening();
     setMuted(true);
   };
-
-  const detailsProvided = Object.values(emergencyDetails).filter(Boolean).length;
 
   // ================= RETURN ==================
   return (
@@ -302,54 +566,19 @@ export default function Emergency911() {
               🎉 Emergency Call Completed!
             </h2>
             
-            {/* Score Display */}
+            {/* Simple completion message */}
             <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-              <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <h3 className="text-xl font-semibold text-white mb-4">📞 Call Summary</h3>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-green-400">
-                    {score}/{maxScore}
-                  </div>
-                  <div className="text-sm text-gray-300">Total Score</div>
+                <div className="text-lg text-gray-300 mb-4">
+                  You successfully completed your emergency 911 call simulation.
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-400">
-                    {maxScore > 0 ? Math.round((score / maxScore) * 100) : 0}%
-                  </div>
-                  <div className="text-sm text-gray-300">Accuracy</div>
+                <div className="text-sm text-gray-400">
+                  Questions exchanged: {questionCount}
                 </div>
-              </div>
-              
-              {/* Emergency details provided */}
-              <div className="mt-4 p-3 rounded-lg border-2 border-dashed">
-                <h4 className="text-white font-semibold mb-2">
-                  Emergency Details Provided: {detailsProvided}/4
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className={`${emergencyDetails.type ? "text-green-300" : "text-red-300"}`}>
-                    {emergencyDetails.type ? "✅" : "❌"} Emergency Type
-                  </div>
-                  <div className={`${emergencyDetails.location ? "text-green-300" : "text-red-300"}`}>
-                    {emergencyDetails.location ? "✅" : "❌"} Location
-                  </div>
-                  <div className={`${emergencyDetails.condition ? "text-green-300" : "text-red-300"}`}>
-                    {emergencyDetails.condition ? "✅" : "❌"} Condition
-                  </div>
-                  <div className={`${emergencyDetails.confirmation ? "text-green-300" : "text-red-300"}`}>
-                    {emergencyDetails.confirmation ? "✅" : "❌"} Confirmation
-                  </div>
+                <div className="text-sm text-gray-400">
+                  Call duration: {INITIAL_TIME} seconds
                 </div>
-              </div>
-
-              {/* Performance feedback */}
-              <div className="mt-4 text-center">
-                {(() => {
-                  const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
-                  if (percentage >= 80) return <div className="text-green-300">🌟 Excellent! Outstanding emergency communication!</div>;
-                  if (percentage >= 60) return <div className="text-green-300">✨ Great job! Strong emergency response skills!</div>;
-                  if (percentage >= 40) return <div className="text-yellow-300">👍 Good work! Keep practicing for improvement!</div>;
-                  return <div className="text-orange-300">📚 Room for improvement. Focus on clear communication!</div>;
-                })()}
               </div>
             </div>
 
@@ -417,15 +646,20 @@ export default function Emergency911() {
       <div className="flex items-center gap-3 text-lg text-white">
         <div
           className={`w-4 h-4 rounded-full border-2 border-white ${
-            listening ? "bg-green-400 animate-ping" : "bg-red-600"
+            listening && !muted ? "bg-green-400 animate-ping" : "bg-red-600"
           }`}
         />
-        <span>🎙️ Listening: {listening ? "✅ Yes" : "❌ No"}</span>
+        <span>🎙️ Microphone: {
+          currentAudioRef.current ? "🔊 AI Speaking" :
+          listening && !muted ? "✅ Listening" : "❌ Muted"
+        }</span>
       </div>
 
       {/* 📝 Transcript */}
       <div className="text-gray-200 text-sm italic text-center max-w-md">
-        {transcript ? `"${transcript}"` : "You can speak now..."}
+        {transcript ? `"${transcript}"` : 
+         currentAudioRef.current ? "AI is speaking, please wait..." :
+         muted ? "Waiting for dispatcher..." : "You can speak now..."}
       </div>
 
       {/* Progress indicator */}
@@ -434,11 +668,8 @@ export default function Emergency911() {
           <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
             Questions: {questionCount}
           </div>
-          <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full mb-2">
-            Score: {score}/{maxScore} points
-          </div>
           <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
-            Details: {detailsProvided}/4
+            Call in progress...
           </div>
         </div>
       )}
@@ -468,6 +699,7 @@ export default function Emergency911() {
                   SpeechRecognition.startListening({ continuous: true, language: "en-US" });
                 }}
                 className="px-6 py-3 bg-gradient-to-br from-green-600 to-green-800 hover:from-green-700 hover:to-green-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+                disabled={currentAudioRef.current !== null}
               >
                 🔊 Unmute
               </button>
