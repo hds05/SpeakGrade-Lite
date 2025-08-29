@@ -30,6 +30,7 @@ async function callOpenAI(messages: Message[]): Promise<string> {
     top_p: 0.9,
     frequency_penalty: 0.1,
     presence_penalty: 0.1,
+    response_format: { type: "json_object" }, // Force JSON response
   };
   
   console.log("📤 Request body:", JSON.stringify(requestBody, null, 2));
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       content: `You are a 9-11 dispatcher. Be brief, direct, and professional. Ask ONE question at a time.
 
       Current question: ${questionCount}
-      
+
       Key topics to cover:
       1. What happened
       2. Where (location)
@@ -100,7 +101,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       Keep responses under 27 words. Be realistic but supportive.
 
-      JSON format: {"speaker":"911 Dispatcher","text":"brief response"}`,
+      IMPORTANT: You MUST respond ONLY with a valid JSON object in this exact format:
+      {"speaker":"911 Dispatcher","text":"your response here"}
+
+      Do not include any text before or after the JSON. Do not add explanations.`,
     };
     
     const userPrompt: Message = {
@@ -135,28 +139,43 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     let json: ConversationResponse | null = null;
-    if (content) {
+    if (content && content.trim()) {
       console.log("🔄 Attempting to parse JSON response...");
+      console.log("📄 Raw content:", content);
+
+      // First try direct parsing
       try {
-        json = JSON.parse(content);
-        console.log("✅ Successfully parsed JSON:", json);
+        json = JSON.parse(content.trim());
+        console.log("✅ Successfully parsed JSON directly:", json);
       } catch (parseError) {
         console.warn("⚠️ Direct JSON parse failed:", parseError instanceof Error ? parseError.message : parseError);
         console.log("🔍 Trying to extract JSON from response...");
-        
-        // Try to extract JSON from response
-        const match = content.match(/\{[\s\S]*?\}/);
-        if (match) {
-          console.log("🔍 Found potential JSON match:", match[0]);
-          try {
-            json = JSON.parse(match[0]);
-            console.log("✅ Successfully parsed extracted JSON:", json);
-          } catch (extractError) {
-            console.error("❌ Failed to parse extracted JSON:", extractError instanceof Error ? extractError.message : extractError);
-            json = null;
+
+        // Try multiple regex patterns to extract JSON
+        const patterns = [
+          /\{[\s\S]*?\}/, // Basic JSON object
+          /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/, // Nested JSON
+          /"speaker"[^}]*\}/, // Speaker-focused extraction
+        ];
+
+        for (const pattern of patterns) {
+          const match = content.match(pattern);
+          if (match) {
+            console.log("🔍 Found potential JSON match with pattern:", pattern);
+            console.log("🔍 Match:", match[0]);
+            try {
+              json = JSON.parse(match[0]);
+              console.log("✅ Successfully parsed extracted JSON:", json);
+              break; // Stop trying other patterns if successful
+            } catch (extractError) {
+              console.warn("⚠️ Pattern failed, trying next pattern");
+              continue;
+            }
           }
-        } else {
-          console.error("❌ No JSON pattern found in response");
+        }
+
+        if (!json) {
+          console.error("❌ No JSON pattern worked for content:", content);
         }
       }
     } else {

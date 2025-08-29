@@ -13,15 +13,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       messages: [
         {
           role: "system",
-          content: "You are a test assistant. Respond with valid JSON: {\"test\": \"success\", \"message\": \"API is working\"}"
+          content: "You are a test assistant. You MUST respond ONLY with a valid JSON object in this exact format: {\"test\": \"success\", \"message\": \"API is working\"}"
         },
         {
-          role: "user", 
+          role: "user",
           content: "Please respond with the test JSON format"
         }
       ],
       temperature: 0.1,
       max_tokens: 50,
+      response_format: { type: "json_object" }, // Force JSON response
     };
 
     console.log("📤 Sending test request to OpenAI...");
