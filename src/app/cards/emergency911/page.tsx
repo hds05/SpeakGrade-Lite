@@ -7,6 +7,7 @@ import SpeechRecognition, {
 import { motion } from "framer-motion";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 
 export default function Emergency911() {
@@ -561,7 +562,7 @@ export default function Emergency911() {
         <div
           className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
           style={{
-            backgroundImage: "url('/backgrounds/emergencyBg.png')",
+            backgroundImage: "url('/cards/emergency-911.png')",
           }}
         >
           {/* Dark overlay - responsive for desktop/laptop */}
@@ -645,17 +646,38 @@ export default function Emergency911() {
         </span>
       </motion.div>
 
-      {/* 💬 AI Reply */}
+      {/* 💬 AI Reply with Dispatcher Avatar */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="p-6 rounded-xl bg-gradient-to-br from-red-900/40 to-blue-900/40 backdrop-blur-sm border border-white/20 shadow-xl text-white text-center w-full"
+        className="p-6 rounded-xl bg-gradient-to-br from-red-900/40 to-blue-900/40 backdrop-blur-sm border border-white/20 shadow-xl text-white w-full"
       >
-        {aiReply ? (
-          <p className="text-lg font-medium leading-relaxed">{aiReply}</p>
-        ) : (
-          <p className="italic text-gray-300">Dispatcher is waiting...</p>
-        )}
+        <div className="flex items-start gap-4">
+          {/* Dispatcher Avatar */}
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-red-400 bg-white shadow-md overflow-hidden">
+              <Image
+                src="/avatars/emergency-young-woman.png"
+                alt="911 Dispatcher"
+                width={64}
+                height={64}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="text-xs text-center mt-1 text-red-300 font-semibold">
+              911 Dispatcher
+            </div>
+          </div>
+          
+          {/* Message Content */}
+          <div className="flex-1 text-left">
+            {aiReply ? (
+              <p className="text-lg font-medium leading-relaxed">{aiReply}</p>
+            ) : (
+              <p className="italic text-gray-300">Dispatcher is waiting...</p>
+            )}
+          </div>
+        </div>
       </motion.div>
 
       {/* 🎙️ Listening indicator */}

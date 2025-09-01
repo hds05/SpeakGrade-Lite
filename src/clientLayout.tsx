@@ -57,7 +57,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/interviewRoom",
     isLocked: false,
     requiredScore: 0,
-    tags: ["Professional", "Medium"],
+    tags: ["Work", "Easy"],
   },
   {
     id: 2,
@@ -120,7 +120,7 @@ const componentsList: ComponentItem[] = [
     path: "/cards/englishGuideBot",
     isLocked: false, // Will be dynamically controlled by live conversation system
     requiredScore: 0,
-    tags: ["Education", "Live"],
+    tags: ["Test", "Live"],
     isLiveConversation: true, // Mark as live conversation level
   },
 ];
@@ -150,7 +150,22 @@ export default function ClientLayout({
   );
   const [showLiveConversationUnlock, setShowLiveConversationUnlock] = useState(false);
   
+  // FILTERING SYSTEM STATE
+  const [selectedType, setSelectedType] = useState('All');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('All');
+  
   const router = useRouter();
+
+  // FILTERING LOGIC
+  const filteredComponents = componentsList.filter(component => {
+    const typeMatch = selectedType === 'All' || component.tags?.some(tag => 
+      tag.toLowerCase() === selectedType.toLowerCase()
+    );
+    const difficultyMatch = selectedDifficulty === 'All' || component.tags?.some(tag => 
+      tag.toLowerCase() === selectedDifficulty.toLowerCase()
+    );
+    return typeMatch && difficultyMatch;
+  });
 
   // Load scores and unlock state from localStorage
   useEffect(() => {
@@ -714,8 +729,48 @@ export default function ClientLayout({
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">
               🚀 Available Scenarios
             </h2>
+            
+            {/* Minimal Filter System */}
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+              {/* Type Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600">Type:</span>
+                <select 
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="px-3 py-1 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Work">Work</option>
+                  <option value="Life">Life</option>
+                  <option value="Fantasy">Fantasy</option>
+                  <option value="Test">Test</option>
+                </select>
+              </div>
+              
+              {/* Difficulty Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-600">Difficulty:</span>
+                <select 
+                  value={selectedDifficulty}
+                  onChange={(e) => setSelectedDifficulty(e.target.value)}
+                  className="px-3 py-1 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+              
+              {/* Results Count */}
+              <div className="text-xs text-gray-500 ml-2">
+                {filteredComponents.length} scenario{filteredComponents.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full mx-auto">
-              {componentsList
+              {filteredComponents
                 // LOCKED LEVELS - CURRENTLY DISABLED
                 // .filter(item => {
                 //   const isAdvancedCard = item.id === 7; // English Guide Bot only
@@ -759,7 +814,7 @@ export default function ClientLayout({
                               case "fantasy":
                                 tagColor = "bg-gradient-to-r from-pink-500 to-rose-600 text-white ring-1 ring-pink-300/60";
                                 break;
-                              case "education":
+                              case "test":
                                 tagColor = "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white ring-1 ring-indigo-300/60";
                                 break;
                               case "live":
@@ -767,6 +822,12 @@ export default function ClientLayout({
                                 break;
                               case "easy":
                                 tagColor = "bg-gradient-to-r from-green-500 to-green-600 text-white ring-1 ring-green-300/60";
+                                break;
+                              case "medium":
+                                tagColor = "bg-gradient-to-r from-yellow-500 to-orange-500 text-white ring-1 ring-yellow-300/60";
+                                break;
+                              case "hard":
+                                tagColor = "bg-gradient-to-r from-red-500 to-red-600 text-white ring-1 ring-red-300/60";
                                 break;
                               default:
                                 tagColor = "bg-gradient-to-r from-gray-500 to-gray-600 text-white ring-1 ring-gray-300/60";

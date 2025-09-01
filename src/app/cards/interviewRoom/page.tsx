@@ -479,8 +479,7 @@ const playVoice = async (text: string, speaker: string) => {
               <div
                 className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
                 style={{
-                  backgroundImage:
-                    "url('https://cdn.prod.website-files.com/61a05ff14c09ecacc06eec05/6720e94e1cd203b14c045522_%20Interview-Notes.jpg')",
+                  backgroundImage: "url('/cards/interview-room.png')",
                 }}
               >
                 {/* Desktop/Laptop Opacity Overlay - 85% of current */}

@@ -322,8 +322,7 @@ export default function OutletCustomer() {
             <div
               className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
               style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80')",
+                backgroundImage: "url('/cards/outlet-customer.png')",
               }}
             >
               {/* Dark overlay - responsive for desktop/laptop */}

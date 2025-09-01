@@ -519,7 +519,7 @@ export default function ParkingTicket(): React.JSX.Element {
             <div
               className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
               style={{
-                backgroundImage: "url('/backgrounds/parkingBg.png')",
+                backgroundImage: "url('/cards/parking-ticket.png')",
               }}
             >
               <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>

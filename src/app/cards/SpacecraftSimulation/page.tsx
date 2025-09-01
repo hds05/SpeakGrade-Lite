@@ -7,6 +7,7 @@ import { Canvas } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import SoundWave from "@/app/components/soundWave/page";
 import { saveScenarioScore } from "@/utils/scoreManager";
+import Confetti from "react-confetti";
 
 interface ScoreData {
   points: number;
@@ -430,10 +431,18 @@ export default function SpacecraftSimulation() {
 
   if (showCompletion) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-purple-900 to-black text-white flex items-center justify-center p-4 relative">
-        {/* Responsive background overlay for completion */}
-        <div className="absolute inset-0 bg-black/0 md:bg-black/15 lg:bg-black/15 xl:bg-black/15 z-0"></div>
-        <div className="text-center max-w-4xl">
+      <div className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
+           style={{
+             backgroundImage: "url('/cards/spacecraft.png')",
+           }}>
+        {/* Dark overlay - responsive for desktop/laptop */}
+        <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
+        
+        {/* Confetti */}
+        <Confetti className="w-full h-full z-10" />
+        
+        {/* Content */}
+        <div className="relative z-20 max-w-4xl w-full px-4">
           <div className="mb-8">
             <h1 className="text-4xl md:text-6xl font-bold mb-4 text-green-400">
               {missionStatus === "SUCCESS" ? "🎉 Mission Accomplished!" : 
