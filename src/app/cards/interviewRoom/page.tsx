@@ -633,7 +633,7 @@ const playVoice = async (text: string, speaker: string) => {
                       {micActive && <SoundWave speaking={listening} />}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
                         <Image
-                          src="/avatars/self-icon.png"
+                          src="/avatars/user-avatar.png"
                           alt="You"
                           width={112}
                           height={112}
