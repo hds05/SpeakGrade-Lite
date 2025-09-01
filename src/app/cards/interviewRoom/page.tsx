@@ -12,7 +12,7 @@ import SoundWave from "@/app/components/soundWave/page";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { saveCardScore } from "@/app/utils/scoringUtils";
-import InterviewRoomGuard from "./InterviewRoomGuard";
+
 
 export default function InterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "main">("intro");
@@ -115,9 +115,9 @@ export default function InterviewRoom() {
   };
 
   const interviewers = [
-    { name: "Bob", image: "/avatars/bob.webp" },
-    { name: "Charlie", image: "/avatars/old-man-avatar.png" },
-    { name: "Alice", image: "/avatars/alice.jpg" },
+    { name: "Bob", image: "/avatars/interview-older-man.png" },
+    { name: "Charlie", image: "/avatars/interview-younger-woman.png" },
+    { name: "Alice", image: "/avatars/interview-older-woman.png" },
   ];
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -466,8 +466,8 @@ const playVoice = async (text: string, speaker: string) => {
   };
 
   return (
-    <InterviewRoomGuard>
       <div className="relative w-full min-h-screen  bg-gradient-to-b from-black/80 to-gray-400 text-white">
+
         {loading && !interviewStarted ? (
           <div className="bg-white">
             <Loader />
@@ -483,8 +483,10 @@ const playVoice = async (text: string, speaker: string) => {
                     "url('https://cdn.prod.website-files.com/61a05ff14c09ecacc06eec05/6720e94e1cd203b14c045522_%20Interview-Notes.jpg')",
                 }}
               >
-                {/* Dark overlay */}
-                <div className="absolute inset-0 bg-black/80 z-0"></div>
+                {/* Desktop/Laptop Opacity Overlay - 85% of current */}
+                <div className="absolute inset-0 bg-black opacity-15 md:opacity-15 lg:opacity-15 xl:opacity-15"></div>
+                {/* Dark overlay - responsive for desktop/laptop */}
+                <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
 
                 {/* Confetti */}
                 <Confetti className="w-full h-full z-10" />
@@ -497,7 +499,7 @@ const playVoice = async (text: string, speaker: string) => {
                   
                   {/* Feedback Display */}
                   {feedback && (
-                    <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                    <div className="mb-6 p-6">
                       <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="text-center">
@@ -567,13 +569,31 @@ const playVoice = async (text: string, speaker: string) => {
                 )}
 
                 <div
-                  className="relative bg-contain bg-no-repeat bg-center w-full bg-gray-100
-                         bg-[url('https://blog.glassdoor.com/site-us/wp-content/uploads/sites/2/New-asset-The-Pros-and-Cons-of-a-Panel-Interview-02-1.png?w=900')]
-                         sm:bg-[url('/interview_img.jpg')]
-                         sm:bg-cover rounded-full"
+                  className="relative w-full min-h-screen bg-gray-100"
                 >
-                  <div className="absolute bg-black/40 w-full h-full z-[1]" />
-                  <div className="flex flex-col items-center justify-evenly min-h-screen">
+                  {/* Layer 2 - Enhanced modern background extension */}
+                  <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+                    <div 
+                      className="w-full h-full bg-cover bg-center bg-no-repeat"
+                      style={{
+                        backgroundImage: "url('/backgrounds/interviewBg.png')",
+                        filter: 'blur(3px) brightness(1.1)',
+                        transform: 'scale(1.1)'
+                      }}
+                    ></div>
+                  </div>
+
+                  {/* Layer 1 - Main background (90% size on desktop) */}
+                  <div className="absolute inset-0 z-[1] flex items-center justify-center">
+                    <div 
+                      className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+                      style={{
+                        backgroundImage: "url('/backgrounds/interviewBg.png')",
+                        minHeight: '100vh'
+                      }}
+                    ></div>
+                  </div>
+                  <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
                     {/* Timer Display */}
                     {interviewStarted && (
                       <div className="absolute top-1 right-2  transform -translate-x-1/2 z-[200]">
@@ -701,6 +721,5 @@ const playVoice = async (text: string, speaker: string) => {
           </>
         )}
       </div>
-    </InterviewRoomGuard>
   );
 }

@@ -111,7 +111,7 @@ export default function ParkingTicket(): React.JSX.Element {
     generatePDFReport(reportData);
   };
 
-  const officer: Officer = { name: "Officer Davis", image: "/avatars/old-man-avatar.png" }; // We'll use the same avatar for now
+  const officer: Officer = { name: "Officer Davis", image: "/avatars/parking-police-man.png" };
 
   // Unlock audio context on first user interaction
   const unlockAudio = (): void => {
@@ -508,6 +508,7 @@ export default function ParkingTicket(): React.JSX.Element {
 
   return (
     <div className="relative w-full min-h-screen bg-black text-white">
+
       {loading && !conversationStarted ? (
         <div className="bg-white">
           <Loader />
@@ -518,11 +519,10 @@ export default function ParkingTicket(): React.JSX.Element {
             <div
               className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
               style={{
-                backgroundImage:
-                  "url('https://cdn.prod.website-files.com/61a05ff14c09ecacc06eec05/6720e94e1cd203b14c045522_%20Interview-Notes.jpg')",
+                backgroundImage: "url('/backgrounds/parkingBg.png')",
               }}
             >
-              <div className="absolute inset-0 bg-black/80 z-0"></div>
+              <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
               <Confetti className="w-full h-full z-10" />
               <div className="relative z-20 max-w-2xl w-full px-4">
                 <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-4">
@@ -593,13 +593,31 @@ export default function ParkingTicket(): React.JSX.Element {
               )}
 
               <div
-                className="relative bg-contain bg-no-repeat bg-center w-full bg-gray-100
-                       bg-[url('https://img.freepik.com/free-vector/parking-fines-abstract-concept-vector-illustration-no-parking-zone-restricted-place-penalty-charge-notice-rules-violation-fine-ticket-online-payment-term-vehicle-parked-abstract-metaphor_335657-1805.jpg?t=st=1746336582~exp=1746340182~hmac=8144c51322da91d281911326c2445e8e950759564a3c419b5d89c96e9fed277c')]
-                       sm:bg-[url('https://filetickets.ca/blog-front/img/blog-hero2.svg')]
-                       sm:bg-cover"
+                className="relative w-full min-h-screen bg-gray-100"
               >
-                <div className="absolute bg-black/40 w-full h-full z-[1]" />
-                <div className="flex flex-col items-center justify-evenly min-h-screen">
+                {/* Layer 2 - Enhanced modern background extension */}
+                <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+                  <div 
+                    className="w-full h-full bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: "url('/backgrounds/parkingBg.png')",
+                      filter: 'blur(3px) brightness(1.1)',
+                      transform: 'scale(1.1)'
+                    }}
+                  ></div>
+                </div>
+
+                {/* Layer 1 - Main background (90% size on desktop) */}
+                <div className="absolute inset-0 z-[1] flex items-center justify-center">
+                  <div 
+                    className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: "url('/backgrounds/parkingBg.png')",
+                      minHeight: '100vh'
+                    }}
+                  ></div>
+                </div>
+                <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
                   <div className="flex flex-wrap items-start justify-center gap-8 z-[100]">
                     <div className="flex flex-col items-center">
                       <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">

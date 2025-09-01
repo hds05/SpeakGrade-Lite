@@ -85,7 +85,7 @@ export default function OutletCustomer() {
     generatePDFReport(reportData);
   };
 
-  const cashier = { name: "Sarah", image: "/avatars/alice.jpg" }; // Using Alice's image for the cashier
+  const cashier = { name: "Ryan", image: "/avatars/outlet-young-male.png" };
 
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -311,6 +311,7 @@ export default function OutletCustomer() {
 
   return (
     <div className="relative w-full min-h-screen  bg-black text-white">
+
       {loading && !conversationStarted ? (
         <div className="bg-white">
           <Loader />
@@ -325,8 +326,8 @@ export default function OutletCustomer() {
                   "url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80')",
               }}
             >
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-black/80 z-0"></div>
+              {/* Dark overlay - responsive for desktop/laptop */}
+              <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
 
               {/* Confetti */}
               {resolvedCount >= 3 && (
@@ -342,7 +343,7 @@ export default function OutletCustomer() {
                 </h2>
 
                 {/* Score Display */}
-                <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="mb-6 p-6">
                   <h3 className="text-xl font-semibold text-white mb-4">
                     🏆 Your Performance
                   </h3>
@@ -523,13 +524,31 @@ export default function OutletCustomer() {
               )}
               <div className="bg-gradient-to-br from-violet-400 via-blue-300 to-pink-200">
                 <div
-                  className="relative sm:bg-cover bg-no-repeat bg-center w-full bg-gray-100
-                       bg-[url('https://thumbs.dreamstime.com/b/beautiful-anime-background-clothes-room-beautiful-anime-background-clothes-room-bright-colors-351325259.jpg')] bg-cover 
-                       sm:bg-[url('https://www.movylo.com/wp-content/uploads/2024/01/image-15.png')] rounded-full
-                       "
+                  className="relative w-full min-h-screen bg-gray-100"
                 >
-                  <div className="absolute bg-black/40 w-full h-full z-[1]" />
-                  <div className="flex flex-col items-center justify-evenly min-h-screen">
+                  {/* Layer 2 - Enhanced modern background extension */}
+                  <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+                    <div 
+                      className="w-full h-full bg-cover bg-center bg-no-repeat"
+                      style={{
+                        backgroundImage: "url('/backgrounds/outletBg.png')",
+                        filter: 'blur(3px) brightness(1.1)',
+                        transform: 'scale(1.1)'
+                      }}
+                    ></div>
+                  </div>
+
+                  {/* Layer 1 - Main background (90% size on desktop) */}
+                  <div className="absolute inset-0 z-[1] flex items-center justify-center">
+                    <div 
+                      className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+                      style={{
+                        backgroundImage: "url('/backgrounds/outletBg.png')",
+                        minHeight: '100vh'
+                      }}
+                    ></div>
+                  </div>
+                  <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
                     {/* Cashier */}
                     <div className="flex flex-col items-center z-[100] mt-8">
                       <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-green-500 bg-white shadow-md overflow-hidden">

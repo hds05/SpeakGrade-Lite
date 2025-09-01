@@ -8,6 +8,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from 'sweetalert2';
 
+// LOCKED LEVELS FUNCTIONALITY - CURRENTLY DISABLED
+// Uncomment the line below to re-enable locked levels functionality
+// import lockedLevelsManager from '@/utils/lockedLevelsManager';
+
+// LIVE CONVERSATION SYSTEM - ACTIVE
+import liveConversationManager from '@/utils/liveConversationManager';
+// Import test utilities for development (can be removed in production)
+import '@/utils/liveConversationTestUtils';
+
 interface ComponentItem {
   id: number;
   title: string;
@@ -17,6 +26,7 @@ interface ComponentItem {
   isLocked?: boolean;
   requiredScore?: number;
   tags?: string[];
+  isLiveConversation?: boolean;  // New property for live conversation levels
 }
 
 interface CardScore {
@@ -28,16 +38,29 @@ interface CardScore {
   lastUpdated: string;
 }
 
-interface UnlockState {
-  advancedCardsUnlocked: boolean;
-  popupShown: boolean;
-  unlockedAt: string | null;
-}
+// LOCKED LEVELS - CURRENTLY DISABLED
+// Uncomment to re-enable unlock state tracking
+// interface UnlockState {
+//   advancedCardsUnlocked: boolean;
+//   popupShown: boolean;
+//   unlockedAt: string | null;
+// }
 
 // Example component data
 const componentsList: ComponentItem[] = [
   {
     id: 1,
+    title: "Interview Room",
+    description:
+      "You are in a professional interview room with three interviewers. ",
+    image: "/cards/interview-room.png",
+    path: "/cards/interviewRoom",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Professional", "Medium"],
+  },
+  {
+    id: 2,
     title: "Weekly Check with Manager",
     description: "Workplace conversation with your manager.",
     image: "/cards/weekly-manager.png",
@@ -47,7 +70,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Work", "Easy"],
   },
   {
-    id: 2,
+    id: 3,
     title: "Parking Ticket Encounter",
     description: "Police encounter - Explain your parking situation.",
     image: "/cards/parking-ticket.png",
@@ -57,7 +80,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Easy"],
   },
   {
-    id: 3,
+    id: 4,
     title: "Outlet Customer Service",
     description:
       "You're a customer at Fashion Outlet with multiple issues that need to be resolved at checkout.",
@@ -68,7 +91,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Easy"],
   },
   {
-    id: 4,
+    id: 5,
     title: "Emergency 911 Dispatcher",
     description: "You have called 911. Tell them your Emergency.",
     image: "/cards/emergency-911.png",
@@ -78,7 +101,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Easy"],
   },
   {
-    id: 5,
+    id: 6,
     title: "Spacecraft Simulation",
     description:
       "Take control of a spacecraft and experience the thrill of space travel.",
@@ -89,26 +112,16 @@ const componentsList: ComponentItem[] = [
     tags: ["Fantasy", "Easy"],
   },
   {
-    id: 6,
+    id: 7,
     title: "English Guide Bot",
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
     image: "/cards/english-coach.png",
     path: "/cards/englishGuideBot",
-    isLocked: true,
-    requiredScore: 60,
-    tags: ["Education", "Easy"],
-  },
-  {
-    id: 7,
-    title: "Interview Room",
-    description:
-      "You are in a professional interview room with three interviewers. ",
-    image: "/cards/interview-room.png",
-    path: "/cards/interviewRoom",
-    isLocked: true,
-    requiredScore: 60,
-    tags: ["Work", "Easy"],
+    isLocked: false, // Will be dynamically controlled by live conversation system
+    requiredScore: 0,
+    tags: ["Education", "Live"],
+    isLiveConversation: true, // Mark as live conversation level
   },
 ];
 
@@ -121,12 +134,22 @@ export default function ClientLayout({
 }: ClientLayoutProps): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState<CardScore[]>([]);
-  const [unlockState, setUnlockState] = useState<UnlockState>({
-    advancedCardsUnlocked: false,
-    popupShown: false,
-    unlockedAt: null,
-  });
-  const [isUnlocking, setIsUnlocking] = useState(false);
+  
+  // LOCKED LEVELS - CURRENTLY DISABLED
+  // Uncomment the lines below to re-enable unlock state tracking
+  // const [unlockState, setUnlockState] = useState<UnlockState>({
+  //   advancedCardsUnlocked: false,
+  //   popupShown: false,
+  //   unlockedAt: null,
+  // });
+  // const [isUnlocking, setIsUnlocking] = useState(false);
+  
+  // LIVE CONVERSATION SYSTEM STATE
+  const [liveConversationState, setLiveConversationState] = useState(
+    liveConversationManager.getLiveConversationState()
+  );
+  const [showLiveConversationUnlock, setShowLiveConversationUnlock] = useState(false);
+  
   const router = useRouter();
 
   // Load scores and unlock state from localStorage
@@ -139,11 +162,16 @@ export default function ClientLayout({
           setScores(JSON.parse(storedScores));
         }
 
-        // Load unlock state
-        const storedUnlockState = localStorage.getItem('speakGrade_unlockState');
-        if (storedUnlockState) {
-          setUnlockState(JSON.parse(storedUnlockState));
-        }
+        // LOCKED LEVELS - CURRENTLY DISABLED
+        // Uncomment to re-enable unlock state loading
+        // const storedUnlockState = localStorage.getItem('speakGrade_unlockState');
+        // if (storedUnlockState) {
+        //   setUnlockState(JSON.parse(storedUnlockState));
+        // }
+
+        // LIVE CONVERSATION SYSTEM - Initialize and load state
+        const liveState = liveConversationManager.initializeLiveConversationSystem();
+        setLiveConversationState(liveState);
       } catch (error) {
         console.error('Error loading stored data:', error);
       }
@@ -163,10 +191,31 @@ export default function ClientLayout({
     const handleScoresUpdated = (e: CustomEvent) => {
       console.log('🔄 Scores updated via custom event:', e.detail);
       loadStoredData();
+      
+      // Check if this was a regular game completion for live conversation tracking
+      if (e.detail && e.detail.cardId && !liveConversationManager.isLiveConversationLevel(e.detail.cardId)) {
+        console.log('🎯 Regular game completed, updating live conversation progress...');
+        const previousState = liveConversationManager.getLiveConversationState();
+        const newState = liveConversationManager.recordRegularGameCompletion(e.detail.cardId);
+        
+        // Check if we just unlocked live conversations
+        if (newState.liveLevelsUnlocked.length > 0 && previousState.liveLevelsUnlocked.length === 0) {
+          setShowLiveConversationUnlock(true);
+        }
+        
+        setLiveConversationState(newState);
+      }
+    };
+
+    // Listen for live conversation updates
+    const handleLiveConversationUpdated = (e: CustomEvent) => {
+      console.log('🔄 Live conversation state updated:', e.detail);
+      setLiveConversationState(e.detail);
     };
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('scoresUpdated', handleScoresUpdated as EventListener);
+    window.addEventListener('liveConversationUpdated', handleLiveConversationUpdated as EventListener);
 
     // Also refresh when the page becomes visible (user returns from scenario)
     const handleVisibilityChange = () => {
@@ -181,6 +230,7 @@ export default function ClientLayout({
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('scoresUpdated', handleScoresUpdated as EventListener);
+      window.removeEventListener('liveConversationUpdated', handleLiveConversationUpdated as EventListener);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
@@ -266,110 +316,63 @@ export default function ClientLayout({
     return Math.round(totalPercentage / completedScores.length);
   };
 
-  // Check if advanced cards should be unlocked
-  // Requirements: 
-  // 1. Must complete at least 3 scenarios (not just one)
-  // 2. Must achieve 60%+ average score across ALL completed scenarios
-  const checkUnlockStatus = (): boolean => {
-    const completedScores = scores.filter(score => score.completed);
-    
-    // Must complete at least 3 scenarios to unlock advanced cards
-    if (completedScores.length < 3) {
-      return false;
-    }
-    
-    const averageScore = calculateAverageScore();
-    return averageScore >= 60;
-  };
+  // LOCKED LEVELS - CURRENTLY DISABLED
+  // Uncomment to re-enable unlock status checking
+  // const checkUnlockStatus = (): boolean => {
+  //   const completedScores = scores.filter(score => score.completed);
+  //   
+  //   // Must complete at least 3 scenarios to unlock advanced cards
+  //   if (completedScores.length < 3) {
+  //     return false;
+  //   }
+  //   
+  //   const averageScore = calculateAverageScore();
+  //   return averageScore >= 60;
+  // };
 
-  // Get unlock requirements info
-  const getUnlockRequirements = () => {
-    const completedScores = scores.filter(score => score.completed);
-    const averageScore = calculateAverageScore();
-    
-    return {
-      scenariosCompleted: completedScores.length,
-      minimumScenarios: 3,
-      currentAverage: averageScore,
-      targetAverage: 60,
-      canUnlock: checkUnlockStatus()
-    };
-  };
+  // LOCKED LEVELS - CURRENTLY DISABLED
+  // Uncomment to re-enable unlock requirements tracking
+  // const getUnlockRequirements = () => {
+  //   const completedScores = scores.filter(score => score.completed);
+  //   const averageScore = calculateAverageScore();
+  //   
+  //   return {
+  //     scenariosCompleted: completedScores.length,
+  //     minimumScenarios: 3,
+  //     currentAverage: averageScore,
+  //     targetAverage: 60,
+  //     canUnlock: checkUnlockStatus()
+  //   };
+  // };
 
-  // Update unlock state when scores change
+  // LOCKED LEVELS - CURRENTLY DISABLED
+  // Uncomment to re-enable unlock state changes and popup
+  // useEffect(() => {
+  //   const shouldBeUnlocked = checkUnlockStatus();
+  //   
+  //   if (shouldBeUnlocked && !unlockState.advancedCardsUnlocked) {
+  //     setIsUnlocking(true);
+  //     setTimeout(() => {
+  //       const newUnlockState: UnlockState = {
+  //         advancedCardsUnlocked: true,
+  //         popupShown: false,
+  //         unlockedAt: new Date().toISOString(),
+  //       };
+  //       setUnlockState(newUnlockState);
+  //       localStorage.setItem('speakGrade_unlockState', JSON.stringify(newUnlockState));
+  //       // Show unlock popup...
+  //     }, 600);
+  //   }
+  // }, [scores, unlockState.advancedCardsUnlocked]);
+
+  // Live conversation unlock notification
   useEffect(() => {
-    const shouldBeUnlocked = checkUnlockStatus();
-    
-    if (shouldBeUnlocked && !unlockState.advancedCardsUnlocked) {
-      // Start unlock animation
-      setIsUnlocking(true);
-      
-      // Wait for animation to complete before updating state
-      setTimeout(() => {
-        const newUnlockState: UnlockState = {
-          advancedCardsUnlocked: true,
-          popupShown: false,
-          unlockedAt: new Date().toISOString(),
-        };
-        
-        setUnlockState(newUnlockState);
-        localStorage.setItem('speakGrade_unlockState', JSON.stringify(newUnlockState));
-        
-        // Show SweetAlert2 unlock popup
-        const requirements = getUnlockRequirements();
-        Swal.fire({
-          title: '🎉 Advanced Features Unlocked! 🚀',
-          html: `
-            <div class="text-center">
-              <div class="w-20 h-20 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span class="text-white text-3xl">🎉</span>
-              </div>
-              <p class="text-gray-700 mb-6 text-lg">
-                Congratulations! You've achieved the requirements to unlock advanced features!
-              </p>
-              <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-green-800 mb-2">📊 Achievement Summary</h4>
-                <div class="text-left text-green-700 space-y-2">
-
-                  <div class="flex justify-between">
-                    <span>Average Score:</span>
-                    <span class="font-medium">${requirements.currentAverage}%</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Target Met:</span>
-                    <span class="font-medium">✅ ${requirements.minimumScenarios}+ scenarios & 60%+ average</span>
-                  </div>
-                </div>
-              </div>
-              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h4 class="font-semibold text-blue-800 mb-2">🚀 New Features Available</h4>
-                <ul class="text-left text-blue-700 space-y-1">
-                  <li>• <strong>English Guide Bot</strong> - AI-powered fluency assessment</li>
-                  <li>• <strong>Interview Room</strong> - Professional interview simulation</li>
-                </ul>
-              </div>
-              <p class="text-sm text-gray-600">
-                You're now ready for advanced practice and challenges!
-              </p>
-            </div>
-          `,
-          icon: 'success',
-          confirmButtonText: 'Awesome! Let\'s Go! 🚀',
-          confirmButtonColor: '#10B981',
-          showClass: {
-            popup: 'animate__animated animate__fadeInDown'
-          },
-          hideClass: {
-            popup: 'animate__animated animate__fadeOutUp'
-          },
-          customClass: {
-            popup: 'rounded-3xl shadow-2xl max-w-lg',
-            confirmButton: 'rounded-2xl px-8 py-3 text-base font-semibold'
-          }
-        });
-      }, 600); // Match the CSS transition duration
+    if (showLiveConversationUnlock) {
+      const unlockConfig = liveConversationManager.createLiveConversationUnlockNotification();
+      Swal.fire(unlockConfig);
+      setShowLiveConversationUnlock(false);
     }
-  }, [scores, unlockState.advancedCardsUnlocked]);
+  }, [showLiveConversationUnlock]);
 
   // Save scores to localStorage whenever they change
   useEffect(() => {
@@ -378,58 +381,18 @@ export default function ClientLayout({
     }
   }, [scores]);
 
-  // Save unlock state to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('speakGrade_unlockState', JSON.stringify(unlockState));
-  }, [unlockState]);
+  // LOCKED LEVELS - CURRENTLY DISABLED
+  // Uncomment to re-enable unlock state saving
+  // useEffect(() => {
+  //   localStorage.setItem('speakGrade_unlockState', JSON.stringify(unlockState));
+  // }, [unlockState]);
 
-  // Handle advanced cards access
-  const handleAdvancedCardAccess = (cardPath: string, cardTitle: string) => {
-    if (!unlockState.advancedCardsUnlocked) {
-      const requirements = getUnlockRequirements();
-      
+  const handleCardClick = (cardPath?: string) => {
+    if (!cardPath) {
+      // Show "Coming Soon" message for cards without paths
       Swal.fire({
-        title: '🔒 Feature Locked!',
-        html: `
-          <div class="text-left">
-            <p class="mb-4 text-gray-700">
-              <strong>${cardTitle}</strong> is currently locked and requires advanced skills to unlock.
-            </p>
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h4 class="font-semibold text-blue-800 mb-2">📊 Current Progress</h4>
-              <div class="space-y-3">
-
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-blue-700">Current Average:</span>
-                  <span class="text-sm font-medium text-blue-800">${requirements.currentAverage}%</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-sm text-blue-700">Target Average:</span>
-                  <span class="text-sm font-medium text-blue-800">${requirements.targetAverage}%</span>
-                </div>
-                <div class="mt-2">
-                  <div class="w-full bg-blue-200 rounded-full h-2">
-                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(requirements.currentAverage, 100)}%"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <h4 class="font-semibold text-yellow-800 mb-2">🔓 Unlock Requirements</h4>
-              <ul class="text-sm text-yellow-700 space-y-1">
-                <li>• Complete at least <strong>${requirements.minimumScenarios} scenarios</strong></li>
-                <li>• Achieve <strong>${requirements.targetAverage}%+ average score</strong> across all scenarios</li>
-
-              </ul>
-            </div>
-            <p class="text-sm text-gray-600">
-              ${requirements.scenariosCompleted < requirements.minimumScenarios 
-                ? `Complete ${requirements.minimumScenarios - requirements.scenariosCompleted} more scenario(s) first, then focus on improving your scores!`
-                : `Focus on improving your scores to reach the ${requirements.targetAverage}% average threshold!`
-              }
-            </p>
-          </div>
-        `,
+        title: 'Coming Soon!',
+        text: 'This feature is currently under development.',
         icon: 'info',
         confirmButtonText: 'Got It! 👍',
         confirmButtonColor: '#3B82F6',
@@ -446,8 +409,110 @@ export default function ClientLayout({
       });
       return;
     }
+
+    // LOCKED LEVELS - CURRENTLY DISABLED
+    // Uncomment to re-enable locked card check
+    // if ((cardPath === '/cards/englishGuideBot' || cardPath === '/cards/interviewRoom') && !unlockState.advancedCardsUnlocked) {
+    //   // Show locked card popup...
+    //   return;
+    // }
+
+    // LIVE CONVERSATION SYSTEM - Check if this is a live conversation level
+    const component = componentsList.find(item => item.path === cardPath);
+    if (component?.isLiveConversation) {
+      const status = liveConversationManager.getLiveConversationStatus(component.title);
+      
+      if (!status.isUnlocked) {
+        // Show live conversation locked popup
+        Swal.fire({
+          title: '🎯 Live Conversation Locked',
+          html: `
+            <div class="text-center space-y-4">
+              <div class="text-lg font-semibold text-gray-800">
+                Live conversation sessions need to be unlocked
+              </div>
+              
+              <div class="bg-gradient-to-r from-blue-100 to-purple-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-700 space-y-2">
+                  <div>🎯 <strong>Progress:</strong> ${status.gamesPlayed}/${status.gamesRequired} games played</div>
+                  <div>📊 <strong>Progress:</strong> ${status.progress?.toFixed(1) || 0}%</div>
+                  <div>🎮 <strong>Games remaining:</strong> ${status.gamesUntilUnlock}</div>
+                </div>
+              </div>
+              
+              <div class="text-sm text-gray-600">
+                Complete ${status.gamesUntilUnlock} more regular levels to unlock this live conversation!
+              </div>
+            </div>
+          `,
+          icon: 'info',
+          confirmButtonText: 'Got It! 👍',
+          confirmButtonColor: '#3B82F6',
+          customClass: {
+            popup: 'animate__animated animate__bounceIn',
+            title: 'text-xl font-bold text-gray-800',
+            confirmButton: 'px-6 py-3 text-lg font-semibold rounded-lg shadow-lg'
+          }
+        });
+        return;
+      } else {
+        // This is an unlocked live conversation - record its usage
+        liveConversationManager.recordLiveConversationUsage(component.title);
+        
+        // Show confirmation that this will be locked again after use
+        Swal.fire({
+          title: '🎯 Starting Live Conversation',
+          html: `
+            <div class="text-center space-y-4">
+              <div class="text-lg font-semibold text-gray-800">
+                You're about to use your unlocked session
+              </div>
+              
+              <div class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-700 space-y-2">
+                  <div>⚠️ <strong>Important:</strong> This will lock again after this session</div>
+                  <div>🔄 <strong>Next unlock:</strong> Complete 6 more regular levels</div>
+                </div>
+              </div>
+              
+              <div class="text-sm text-gray-600">
+                Make the most of this live conversation session!
+              </div>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Start Session 🚀',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#6B7280',
+          customClass: {
+            popup: 'animate__animated animate__bounceIn',
+            title: 'text-xl font-bold text-gray-800',
+            confirmButton: 'px-6 py-3 text-lg font-semibold rounded-lg shadow-lg',
+            cancelButton: 'px-6 py-3 text-lg font-semibold rounded-lg'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Proceed with navigation
+            setLoading(true);
+            router.push(cardPath);
+          }
+        });
+        return;
+      }
+    }
     
+    // Immediate visual feedback - add loading state
+    setLoading(true);
+    
+    // Navigate immediately
     router.push(cardPath);
+  };
+
+  // Handle advanced cards access
+  const handleAdvancedCardAccess = (cardPath: string, cardTitle: string) => {
+    handleCardClick(cardPath);
   };
 
 
@@ -642,6 +707,8 @@ export default function ClientLayout({
             </div>
           </div>
 
+
+
                     {/* Available Cards Grid - Floating Cloud Cards */}
           <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">
@@ -649,23 +716,32 @@ export default function ClientLayout({
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full mx-auto">
               {componentsList
-                .filter(item => {
-                  const isAdvancedCard = item.id === 6 || item.id === 7; // English Guide Bot and Interview Room
-                  return !isAdvancedCard || unlockState.advancedCardsUnlocked;
-                })
+                // LOCKED LEVELS - CURRENTLY DISABLED
+                // .filter(item => {
+                //   const isAdvancedCard = item.id === 7; // English Guide Bot only
+                //   return !isAdvancedCard || unlockState.advancedCardsUnlocked;
+                // })
                 .map((item) => {
-                  const isAdvancedCard = item.id === 6 || item.id === 7;
-                  const isLocked = isAdvancedCard && !unlockState.advancedCardsUnlocked;
+                  // LOCKED LEVELS - CURRENTLY DISABLED
+                  // const isAdvancedCard = item.id === 7; // English Guide Bot only
+                  // const isLocked = isAdvancedCard && !unlockState.advancedCardsUnlocked;
                   const cardScore = scores.find(s => s.cardId === item.title);
-                  const isNewlyUnlocked = isAdvancedCard && unlockState.advancedCardsUnlocked && unlockState.unlockedAt;
+                  // const isNewlyUnlocked = isAdvancedCard && unlockState.advancedCardsUnlocked && unlockState.unlockedAt;
+                  const isNewlyUnlocked = false; // LOCKED LEVELS DISABLED - always false for now
+                  
+                  // LIVE CONVERSATION SYSTEM - Get status for this item
+                  const liveConversationStatus = item.isLiveConversation 
+                    ? liveConversationManager.getLiveConversationStatus(item.title)
+                    : null;
                   
                   return (
                     <div
                       key={item.id}
-                      className={`relative group rounded-3xl overflow-hidden transition-all duration-500 ease-out hover:-translate-y-3 hover:shadow-2xl hover:scale-[1.02] ${
+                      className={`relative group card-hover-test rounded-3xl overflow-hidden cursor-pointer ${
                         isNewlyUnlocked ? 'card-unlock' : ''
                       }`}
                       style={{ boxShadow: "0 15px 35px rgba(0, 0, 0, 0.1)" }}
+                      onClick={() => handleCardClick(item.path)}
                     >
                       {/* Card frame - Cloud-like */}
                       <div className="rounded-3xl bg-white/90 backdrop-blur-xl ring-1 ring-white/50 relative overflow-hidden">
@@ -685,6 +761,9 @@ export default function ClientLayout({
                                 break;
                               case "education":
                                 tagColor = "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white ring-1 ring-indigo-300/60";
+                                break;
+                              case "live":
+                                tagColor = "bg-gradient-to-r from-orange-500 to-red-600 text-white ring-1 ring-orange-300/60";
                                 break;
                               case "easy":
                                 tagColor = "bg-gradient-to-r from-green-500 to-green-600 text-white ring-1 ring-green-300/60";
@@ -718,15 +797,30 @@ export default function ClientLayout({
                           </div>
                         )}
 
+                        {/* Live Conversation Status Indicator */}
+                        {liveConversationStatus && (
+                          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20">
+                            {liveConversationStatus.isUnlocked ? (
+                              <div className="bg-gradient-to-r from-green-400 to-green-600 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-lg animate-pulse">
+                                🎯 UNLOCKED
+                              </div>
+                            ) : (
+                              <div className="bg-gradient-to-r from-red-400 to-red-600 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-lg">
+                                🔒 {liveConversationStatus.gamesUntilUnlock} left
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Image */}
-                        <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4">
-                          <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 p-2">
+                        <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4 overflow-hidden">
+                          <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 p-2 overflow-hidden">
                             <Image
                               src={item.image}
                               alt={item.title}
                               width={300}
                               height={200}
-                              className="object-contain h-full transition-transform duration-500 group-hover:scale-110"
+                              className="object-contain h-full card-image"
                               priority={item.id <= 3} // Prioritize first 3 cards
                             />
                           </div>
@@ -742,11 +836,15 @@ export default function ClientLayout({
                           </p>
 
                           {item.path ? (
-                            <Link href={item.path}>
-                              <button className="sm:hidden mt-4 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer">
-                                <span className="cursor-pointer">Begin Journey</span>
-                              </button>
-                            </Link>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent card click when button is clicked
+                                handleCardClick(item.path);
+                              }}
+                              className="sm:hidden mt-4 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer"
+                            >
+                              <span className="cursor-pointer">Begin Journey</span>
+                            </button>
                           ) : (
                             <button
                               disabled
@@ -758,225 +856,17 @@ export default function ClientLayout({
                         </div>
                       </div>
 
-                      {/* Hover layer (desktop) - Enhanced cloud effect */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/95 to-sky-50/95 backdrop-blur-xl p-6 sm:p-8 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-center items-center text-center pointer-events-none sm:pointer-events-auto rounded-3xl">
-                        {/* Floating elements on hover - Enhanced visibility */}
-                        <div className="absolute top-4 left-4 w-6 h-6 bg-white/90 rounded-full blur-[0.5px] animate-pulse"></div>
-                        <div className="absolute top-6 right-6 w-4 h-4 bg-white/90 rounded-full blur-[0.5px] animate-pulse delay-100"></div>
-                        <div className="absolute bottom-6 left-6 w-8 h-8 bg-white/90 rounded-full blur-[0.5px] animate-pulse delay-200"></div>
-                        <div className="absolute top-1/2 left-2 w-5 h-5 bg-white/80 rounded-full blur-[0.5px] animate-pulse delay-300"></div>
-                        <div className="absolute top-1/2 right-2 w-3 h-3 bg-white/80 rounded-full blur-[0.5px] animate-pulse delay-400"></div>
 
-                        <h4 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                          {item.title}
-                        </h4>
-                        <p className="text-sm sm:text-base text-gray-700 max-w-xs px-2 leading-relaxed">
-                          {item.description}
-                        </p>
-
-                        {item.path ? (
-                          <Link href={item.path}>
-                            <button className="mt-5 sm:mt-6 px-8 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-base font-semibold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 transform">
-                              Begin Journey
-                            </button>
-                          </Link>
-                        ) : (
-                          <button
-                            disabled
-                            className="mt-5 sm:mt-6 px-8 py-3 rounded-2xl bg-gray-300 text-gray-600 text-base font-semibold cursor-not-allowed"
-                          >
-                            Coming Soon
-                          </button>
-                        )}
-                      </div>
                     </div>
                   );
                 })}
             </div>
           </div>
 
-          {/* Locked Advanced Cards Section */}
-          {!unlockState.advancedCardsUnlocked && (
-            <div className={`mb-12 section-fade ${isUnlocking ? 'fade-out' : ''}`}>
-              <div className="text-center mb-8">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
-                  🔒 Advanced Features (Locked)
-                </h2>
-                <p className="text-gray-600 max-w-2xl mx-auto">
-                  Complete at least 3 scenarios with an average score of 60% or higher across ALL scenarios to unlock these advanced features.
-                </p>
-                <div className="mt-4 inline-flex items-center space-x-4 bg-blue-50 border border-blue-200 rounded-full px-6 py-3">
-                  <span className="text-sm text-blue-700">Overall Achievement:</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="text-2xl font-bold text-blue-600">{calculateAverageScore()}%</div>
-                    <div className="text-sm text-blue-600">/ 60%</div>
-                  </div>
-                  <div className="w-24 bg-blue-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(calculateAverageScore(), 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-                
-                {/* Unlock Requirements */}
-                {(() => {
-                  const requirements = getUnlockRequirements();
-                  return (
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="text-center">
-                        <h4 className="text-sm font-semibold text-yellow-800 mb-2">
-                          🔒 Unlock Requirements
-                        </h4>
-                        <div className="space-y-1 text-xs text-yellow-700">
-
-                          <div className="flex justify-between">
-                            <span>Current Average:</span>
-                            <span className="font-medium">{requirements.currentAverage}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Target Average:</span>
-                            <span className="font-medium">{requirements.targetAverage}%</span>
-                          </div>
-                        </div>
-                        {!requirements.canUnlock && (
-                          <p className="text-xs text-yellow-600 mt-2">
-                            {requirements.scenariosCompleted < requirements.minimumScenarios 
-                              ? `Complete ${requirements.minimumScenarios - requirements.scenariosCompleted} more scenario(s) first`
-                              : `Need ${requirements.targetAverage - requirements.currentAverage}% higher average`
-                            }
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-                
-                <p className="text-xs text-gray-600 mt-2 text-center">
-                  💡 Scenario progress is shown within each individual scenario
-                </p>
-                <div className="mt-2 flex justify-center">
-                  <button
-                    onClick={refreshScores}
-                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
-                  >
-                    🔄 Refresh Progress
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 text-center gap-6 sm:gap-8 max-w-4xl w-full mx-auto">
-                {componentsList
-                  .filter(item => {
-                    const isAdvancedCard = item.id === 6 || item.id === 7;
-                    return isAdvancedCard && !unlockState.advancedCardsUnlocked;
-                  })
-                  .map((item) => {
-                    const cardScore = scores.find(s => s.cardId === item.title);
-                    
-                    return (
-                      <div
-                        key={item.id}
-                        className="relative group rounded-3xl overflow-hidden transition-all duration-500 ease-out opacity-75"
-                        style={{ boxShadow: "0 15px 35px rgba(0, 0, 0, 0.1)" }}
-                      >
-                        {/* Card frame - Locked style */}
-                        <div className="rounded-3xl bg-white/90 backdrop-blur-xl ring-1 ring-red-200 relative overflow-hidden">
-                          {/* Lock Badge */}
-                          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
-                            <span className="text-xs px-3 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-lg bg-gradient-to-r from-red-400 to-red-500 text-white ring-1 ring-red-300/60">
-                              🔒 Locked
-                            </span>
-                          </div>
-
-                          {/* Lock Icon */}
-                          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
-                            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-                              <span className="text-white text-sm">🔒</span>
-                            </div>
-                          </div>
-
-                          {/* Image */}
-                          <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4">
-                            <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 p-2">
-                              <Image
-                                src={item.image}
-                                alt={item.title}
-                                width={300}
-                                height={200}
-                                className="object-contain h-full transition-transform duration-500"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Title */}
-                          <div className="p-4 sm:p-5 lg:p-6">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight mb-2">
-                              {item.title}
-                            </h3>
-                            <p className="text-sm text-gray-600 sm:hidden leading-relaxed">
-                              {item.description}
-                            </p>
-
-                            {/* Locked Message */}
-                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                              <p className="text-xs text-red-600 font-medium mb-2">
-                                🔒 Advanced Feature Locked
-                              </p>
-                              <p className="text-xs text-red-500">
-                                Complete other scenarios with 60%+ average to unlock
-                              </p>
-                            </div>
-
-                            <button 
-                              onClick={() => handleAdvancedCardAccess(item.path!, item.title)}
-                              className="sm:hidden mt-4 px-6 py-2.5 rounded-2xl bg-red-500 text-white text-sm font-semibold shadow-lg hover:bg-red-600 transition-all duration-300 cursor-pointer w-full"
-                            >
-                              🔒 Locked
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Hover layer (desktop) - Locked style */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/95 to-red-50/95 backdrop-blur-xl p-6 sm:p-8 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-center items-center text-center pointer-events-none sm:pointer-events-auto rounded-3xl">
-                          {/* Floating elements on hover */}
-                          <div className="absolute top-4 left-4 w-6 h-6 bg-red-100 rounded-full blur-[0.5px] animate-pulse"></div>
-                          <div className="absolute top-6 right-6 w-4 h-4 bg-red-100 rounded-full blur-[0.5px] animate-pulse delay-100"></div>
-                          <div className="absolute bottom-6 left-6 w-8 h-8 bg-red-100 rounded-full blur-[0.5px] animate-pulse delay-200"></div>
-
-                          <h4 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                            {item.title}
-                          </h4>
-                          <p className="text-sm sm:text-base text-gray-700 max-w-xs px-2 leading-relaxed">
-                            {item.description}
-                          </p>
-
-                          {/* Locked Message for Advanced Cards */}
-                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg max-w-xs">
-                            <p className="text-sm text-red-600 font-medium mb-2">
-                              🔒 {item.title} is Locked
-                            </p>
-                            <p className="text-xs text-red-500">
-                              Complete other scenarios with an average score of 60% or higher to unlock this advanced feature.
-                            </p>
-                            <div className="mt-2 text-xs text-gray-600">
-                              Current average: {calculateAverageScore()}%
-                            </div>
-                          </div>
-
-                          <button 
-                            onClick={() => handleAdvancedCardAccess(item.path!, item.title)}
-                            className="mt-5 sm:mt-6 px-8 py-3 rounded-2xl bg-red-500 text-white text-base font-semibold shadow-xl hover:bg-red-600 transition-all duration-300 transform"
-                          >
-                            🔒 Locked
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
+          {/* LOCKED LEVELS - CURRENTLY DISABLED 
+               All locked levels display logic has been removed.
+               See /src/utils/LOCKED_LEVELS_README.md for re-enablement instructions.
+          */}
         </main>
       </div>
 
@@ -1041,6 +931,25 @@ export default function ClientLayout({
 
         .animate-drift {
           animation: drift 35s ease-in-out infinite;
+        }
+
+        /* Card Hover Effects */
+        .card-hover-test {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover-test:hover {
+          transform: translateY(-12px) scale(1.03);
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+          border: 3px solid #60a5fa;
+        }
+        
+        .card-image {
+          transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover-test:hover .card-image {
+          transform: scale(1.2);
         }
 
         /* SweetAlert2 Animation Classes */

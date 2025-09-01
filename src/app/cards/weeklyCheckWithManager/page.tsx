@@ -93,7 +93,7 @@ export default function WeeklyCheck() {
     generatePDFReport(reportData);
   };
 
-  const manager = { name: "Charlie", image: "/avatars/old-man-avatar.png" };
+  const manager = { name: "Charlie", image: "/avatars/weekly-manager-old-man.png" };
 
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -364,6 +364,7 @@ export default function WeeklyCheck() {
 
   return (
     <div className="relative w-full min-h-screen bg-black text-white">
+
       {loading && !conversationStarted ? (
         <div className="bg-white">
           <Loader />
@@ -378,8 +379,8 @@ export default function WeeklyCheck() {
                   "url('https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1974&q=80')",
               }}
             >
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-black/80 z-0"></div>
+              {/* Dark overlay - responsive for desktop/laptop */}
+              <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
 
               {/* Confetti */}
               <Confetti className="w-full h-full z-10" />
@@ -391,7 +392,7 @@ export default function WeeklyCheck() {
                 </h2>
                 
                 {/* Score Display */}
-                <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="mb-6 p-6">
                   <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center">
@@ -484,12 +485,31 @@ export default function WeeklyCheck() {
               )}
 
               <div
-                className="relative bg-contain bg-no-repeat bg-center w-full bg-gray-100
-                       bg-[url('https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1974&q=80')]
-                       bg-cover"
+                className="relative w-full min-h-screen bg-gray-100"
               >
-                <div className="absolute bg-black/40 w-full h-full z-[1]" />
-                <div className="flex flex-col items-center justify-evenly min-h-screen">
+                {/* Layer 2 - Enhanced modern background extension */}
+                <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+                  <div 
+                    className="w-full h-full bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: "url('/backgrounds/weeklyBg.png')",
+                      filter: 'blur(3px) brightness(1.1)',
+                      transform: 'scale(1.1)'
+                    }}
+                  ></div>
+                </div>
+
+                {/* Layer 1 - Main background (90% size on desktop) */}
+                <div className="absolute inset-0 z-[1] flex items-center justify-center">
+                  <div 
+                    className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: "url('/backgrounds/weeklyBg.png')",
+                      minHeight: '100vh'
+                    }}
+                  ></div>
+                </div>
+                <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
                   {/* Manager */}
                   <div className="flex flex-col items-center z-[100] mt-8">
                     <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">

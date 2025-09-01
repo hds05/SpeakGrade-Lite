@@ -50,8 +50,8 @@ export default function EnglishGuideBot() {
         <div className="absolute inset-0 w-full h-full z-0">
           {/* Large screen image */}
           <Image
-            src="/backgrounds/cartooncloud.webp"
-            alt="SpeakGrade Background"
+            src="/backgrounds/englishBg.png"
+            alt="English Guide Background"
             fill
             className="hidden sm:block object-cover animate__animated animate__fadeIn"
             priority
@@ -65,7 +65,17 @@ export default function EnglishGuideBot() {
             className="block sm:hidden object-cover animate__animated animate__fadeIn"
           />
 
-          <div className="absolute inset-0 bg-black/70" />
+          {/* Layer 2 - Enhanced modern background extension */}
+          <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+            <div 
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url('/backgrounds/englishBg.png')",
+                filter: 'blur(3px) brightness(1.1)',
+                transform: 'scale(1.1)'
+              }}
+            ></div>
+          </div>
         </div>
 
         {/* Glow */}

@@ -171,25 +171,27 @@ export default function SpacecraftSimulation() {
     }
   }, [phase]);
 
-  const startJarvisGreeting = () => {
+  const startJarvisGreeting = async () => {
     console.log("🤖 [Jarvis] Starting greeting...");
     const greeting = "Due to asteroid collision, our spaceship has been damaged. Don't worry, I'll guide you through what's happening outside. You just give me instructions.";
     
     setConversationHistory([{ speaker: "JARVIS", text: greeting }]);
     setConversationStarted(true);
-    setMicActive(true);
     
-    // Play Jarvis's voice
-    playJarvisVoice(greeting);
+    // Play Jarvis's voice first
+    await playJarvisVoice(greeting);
     
-    // Start speech recognition
-    if (browserSupportsSpeechRecognition) {
-      SpeechRecognition.startListening({ 
-        continuous: true,
-        interimResults: false,
-        language: 'en-US'
-      });
-    }
+    // Wait for audio to complete before starting mic
+    setTimeout(() => {
+      setMicActive(true);
+      if (browserSupportsSpeechRecognition) {
+        SpeechRecognition.startListening({ 
+          continuous: true,
+          interimResults: false,
+          language: 'en-US'
+        });
+      }
+    }, 1500); // 1.5 second delay after audio completes
   };
 
   const playJarvisVoice = async (text: string) => {
@@ -324,20 +326,49 @@ export default function SpacecraftSimulation() {
         // Play Jarvis's response
         await playJarvisVoice(data.text);
 
+        // Wait for audio to actually finish playing before restarting mic
+        const waitForAudioCompletion = () => {
+          return new Promise<void>((resolve) => {
+            if (!currentAudioRef.current) {
+              resolve();
+              return;
+            }
+
+            const checkAudio = () => {
+              if (!currentAudioRef.current) {
+                resolve();
+                return;
+              }
+              // Check if audio is still playing
+              if (currentAudioRef.current.ended || currentAudioRef.current.paused) {
+                resolve();
+              } else {
+                setTimeout(checkAudio, 100);
+              }
+            };
+
+            checkAudio();
+          });
+        };
+
+        await waitForAudioCompletion();
+
         // Check if mission should end
         if (data.missionStatus === "SUCCESS" || data.missionStatus === "FAIL") {
           handleCompletion(data.missionStatus);
           setTimerActive(false);
         } else {
-          // Restart listening for next decision
-          setMicActive(true);
-          if (browserSupportsSpeechRecognition) {
-            SpeechRecognition.startListening({ 
-              continuous: true,
-              interimResults: false,
-              language: 'en-US'
-            });
-          }
+          // Add a small delay before restarting mic to prevent capturing AI's last words
+          setTimeout(() => {
+            setMicActive(true);
+            if (browserSupportsSpeechRecognition) {
+              SpeechRecognition.startListening({
+                continuous: true,
+                interimResults: false,
+                language: 'en-US'
+              });
+            }
+          }, 1500); // 1.5 second delay
         }
       }
     } catch (error) {
@@ -399,7 +430,9 @@ export default function SpacecraftSimulation() {
 
   if (showCompletion) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-purple-900 to-black text-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-black via-purple-900 to-black text-white flex items-center justify-center p-4 relative">
+        {/* Responsive background overlay for completion */}
+        <div className="absolute inset-0 bg-black/0 md:bg-black/15 lg:bg-black/15 xl:bg-black/15 z-0"></div>
         <div className="text-center max-w-4xl">
           <div className="mb-8">
             <h1 className="text-4xl md:text-6xl font-bold mb-4 text-green-400">
@@ -415,15 +448,15 @@ export default function SpacecraftSimulation() {
         </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="p-6">
               <h3 className="text-2xl font-bold text-blue-400 mb-2">Decisions Made</h3>
               <p className="text-4xl font-bold">{decisionsMade}</p>
               </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="p-6">
               <h3 className="text-2xl font-bold text-green-400 mb-2">Safety Level</h3>
               <p className="text-4xl font-bold">{safetyLevel}%</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="p-6">
               <h3 className="text-2xl font-bold text-yellow-400 mb-2">Score</h3>
               <p className="text-4xl font-bold">{totalScore}/{maxScore}</p>
               </div>
@@ -457,6 +490,17 @@ export default function SpacecraftSimulation() {
 
     return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Layer 2 - Enhanced modern background extension */}
+      <div className="absolute inset-0 z-0 opacity-70 overflow-hidden">
+        <div 
+          className="w-full h-full bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "url('/backgrounds/spacecraftBg.png')",
+            filter: 'blur(3px) brightness(1.1)',
+            transform: 'scale(1.1)'
+          }}
+        ></div>
+      </div>
       {/* Emergency Lights Effect */}
       {emergencyLights && (
         <div className="fixed inset-0 z-50 pointer-events-none">
@@ -507,7 +551,7 @@ export default function SpacecraftSimulation() {
               </p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20 mb-8">
+            <div className="p-8 mb-8">
               <h2 className="text-2xl font-bold mb-4">Mission Briefing</h2>
               <p className="text-lg text-gray-300 mb-4">
                 Your spaceship has been damaged by an asteroid collision. JARVIS, your AI assistant, 
@@ -536,9 +580,15 @@ export default function SpacecraftSimulation() {
       {phase === "mission" && (
         <div className="min-h-screen bg-black relative">
           {/* Space Background with Broken Window */}
-          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
-               style={{ backgroundImage: "url('/spacecraft-simulation.jpg')" }}>
-            <div className="absolute inset-0 bg-black/40"></div>
+          {/* Layer 1 - Main background (90% size on desktop) */}
+          <div className="absolute inset-0 z-[1] flex items-center justify-center">
+            <div 
+              className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url('/backgrounds/spacecraftBg.png')",
+                minHeight: '100vh'
+              }}
+            ></div>
           </div>
 
           {/* Timer Display */}
@@ -567,7 +617,7 @@ export default function SpacecraftSimulation() {
 
           {/* Conversation History */}
           <div className="absolute bottom-32 left-4 right-4 z-20 max-h-64 overflow-y-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+            <div className="p-4">
               <h3 className="text-lg font-bold mb-2 text-blue-400">Mission Log</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {conversationHistory.map((msg, index) => (

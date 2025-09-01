@@ -408,7 +408,7 @@ export default function Emergency911() {
           // Only log meaningful errors
           if (!isEmptyError(err)) {
             console.error("Audio play failed:", err);
-          } else {
+        } else {
             console.log("🔊 Audio play interrupted (expected during call end)");
           }
           URL.revokeObjectURL(url);
@@ -417,7 +417,7 @@ export default function Emergency911() {
           setTimeout(() => {
             if (callActive) {
               console.log("🎙️ Restarting microphone after audio play failure");
-              setMuted(false);
+            setMuted(false);
               SpeechRecognition.startListening({ 
                 continuous: true, 
                 interimResults: false,
@@ -546,16 +546,26 @@ export default function Emergency911() {
   // ================= RETURN ==================
   return (
     <div className="relative w-full min-h-screen  text-white bg-black">
+      {/* Layer 2 - Enhanced modern background extension */}
+      <div className="absolute inset-0 z-0 opacity-70 overflow-hidden">
+        <div 
+          className="w-full h-full bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "url('/backgrounds/emergencyBg.png')",
+            filter: 'blur(3px) brightness(1.1)',
+            transform: 'scale(1.1)'
+          }}
+        ></div>
+      </div>
       {showCompletion ? (
         <div
           className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
           style={{
-            backgroundImage:
-              "url('https://cdn.prod.website-files.com/61a05ff14c09ecacc06eec05/6720e94e1cd203b14c045522_%20Interview-Notes.jpg')",
+            backgroundImage: "url('/backgrounds/emergencyBg.png')",
           }}
         >
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/80 z-0"></div>
+          {/* Dark overlay - responsive for desktop/laptop */}
+          <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
 
           {/* Confetti */}
           <Confetti className="w-full h-full z-10" />
@@ -572,13 +582,13 @@ export default function Emergency911() {
                 <div className="text-center">
                 <div className="text-lg text-gray-300 mb-4">
                   You successfully completed your emergency 911 call simulation.
-                </div>
+                  </div>
                 <div className="text-sm text-gray-400">
                   Questions exchanged: {questionCount}
                 </div>
                 <div className="text-sm text-gray-400">
                   Call duration: {INITIAL_TIME} seconds
-                </div>
+                  </div>
               </div>
             </div>
 
@@ -603,19 +613,25 @@ export default function Emergency911() {
           </div>
         </div>
       ) : (
-<>
-  <div  className="flex flex-col items-center justify-center min-h-screen gap-8 text-white relative overflow-hidden font-mono rounded-full"
-  style={{
-    backgroundImage:
-      'url("/emergency-911.jpg")',
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  }}>
-    {/* 🚨 Animated siren background */}
-    <div className="absolute inset-0 z-0 animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#4f46e5,_#dc2626)] bg-[length:600%_600%] opacity-100 mix-blend-overlay"></div>
+  <div className="relative min-h-screen overflow-hidden">
+    {/* Layer 1 - Main background (90% size on desktop) */}
+    <div className="absolute inset-0 z-[1] flex items-center justify-center">
+      <div 
+        className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: "url('/backgrounds/emergencyBg.png')",
+          minHeight: '100vh'
+        }}
+      ></div>
+    </div>
+    
+    {/* 🚨 Animated siren overlay - above everything */}
+    <div className="absolute inset-0 z-[3] animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#4f46e5,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay pointer-events-none"></div>
+    
+    <div className="relative z-[2] flex flex-col items-center justify-center min-h-screen gap-8 text-white font-mono">
 
-    {/* 🚔 Glassmorphism container */}
-    <div className="relative z-10 backdrop-blur-xl bg-white/10 border-2 border-white/20 shadow-[0_0_60px_rgba(255,0,0,0.4)] rounded-3xl p-8 max-w-2xl w-[90%] flex flex-col gap-6 items-center justify-center transition-all duration-500">
+    {/* 🚔 Floating content - no background */}
+    <div className="relative z-[4] max-w-2xl w-[90%] flex flex-col gap-6 items-center justify-center transition-all duration-500">
 
       {/* ⏱ Timer */}
       <motion.div
@@ -633,7 +649,7 @@ export default function Emergency911() {
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="p-6 rounded-xl bg-gradient-to-br from-red-900 to-blue-900 border border-white/30 shadow-xl text-white text-center w-full"
+        className="p-6 rounded-xl bg-gradient-to-br from-red-900/40 to-blue-900/40 backdrop-blur-sm border border-white/20 shadow-xl text-white text-center w-full"
       >
         {aiReply ? (
           <p className="text-lg font-medium leading-relaxed">{aiReply}</p>
@@ -728,8 +744,7 @@ export default function Emergency911() {
       animation: backgroundPulse 6s ease-in-out infinite;
     }
   `}</style>
-</>
-
+  </div>
       )}
     </div>
   );
