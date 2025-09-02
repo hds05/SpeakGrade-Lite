@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { Canvas } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
@@ -27,7 +28,6 @@ interface ConversationResponse {
 export default function SpacecraftSimulation() {
   const router = useRouter();
   const [phase, setPhase] = useState<"intro" | "emergency" | "mission" | "completion">("intro");
-  const [emergencyLights, setEmergencyLights] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{ speaker: string; text: string }>>([]);
   const [jarvisSpeaking, setJarvisSpeaking] = useState(false);
   const [micActive, setMicActive] = useState(false);
@@ -151,17 +151,12 @@ export default function SpacecraftSimulation() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Emergency lights effect
+  // Skip emergency phase and go directly to mission
   useEffect(() => {
     if (phase === "emergency") {
-      setEmergencyLights(true);
-      const timer = setTimeout(() => {
-        setEmergencyLights(false);
         setPhase("mission");
         setTimerActive(true); // Start the 5-minute timer
         startJarvisGreeting();
-      }, 3000);
-      return () => clearTimeout(timer);
     }
   }, [phase]);
 
@@ -498,59 +493,48 @@ export default function SpacecraftSimulation() {
   }
 
     return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Layer 2 - Enhanced modern background extension */}
-      <div className="absolute inset-0 z-0 opacity-70 overflow-hidden">
-        <div 
-          className="w-full h-full bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url('/backgrounds/spacecraftBg.png')",
-            filter: 'blur(3px) brightness(1.1)',
-            transform: 'scale(1.1)'
-          }}
-        ></div>
-      </div>
-      {/* Emergency Lights Effect */}
-      {emergencyLights && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          {/* 🚨 Animated emergency background - red only with low opacity */}
-          <div className="absolute inset-0 z-0 animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#dc2626,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay"></div>
-          
-          {/* Red border effects with low opacity */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse opacity-50"></div>
-          <div className="absolute top-0 right-0 w-1 h-full bg-red-500 animate-pulse opacity-50"></div>
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-red-500 animate-pulse opacity-50"></div>
-          <div className="absolute top-0 left-0 w-1 h-full bg-red-500 animate-pulse opacity-50"></div>
-        </div>
-      )}
+    <div className="relative min-h-screen text-white overflow-hidden">
+
+
+
 
       {/* Intro Screen */}
       {phase === "intro" && (
         <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
           {/* Three.js Space Background */}
-        <div className="absolute inset-0">
+          <div className="absolute inset-0 z-[1]">
             <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
-              <ambientLight intensity={0.1} />
-              <pointLight position={[10, 10, 10]} intensity={1} />
+              <ambientLight intensity={0.2} />
+              <pointLight position={[10, 10, 10]} intensity={1.5} />
               <Stars 
                 radius={100} 
                 depth={50} 
-                count={5000} 
-                factor={4} 
+                count={8000} 
+                factor={8} 
                 saturation={0} 
                 fade 
-                speed={1}
+                speed={0.3}
               />
               <OrbitControls 
                 enableZoom={false} 
                 enablePan={false} 
                 autoRotate 
-                autoRotateSpeed={0.5}
+                autoRotateSpeed={0.1}
               />
             </Canvas>
           </div>
           
-          <div className="text-center max-w-4xl relative z-10">
+          {/* Spacecraft Interior Background */}
+          <div className="absolute inset-0 z-[2] opacity-70">
+            <div 
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url('/backgrounds/spacecraftBg.png')"
+              }}
+            ></div>
+          </div>
+          
+          <div className="text-center max-w-4xl relative z-30">
             <div className="mb-8">
               <h1 className="text-4xl md:text-6xl font-bold mb-4 ">
                 🚀 Spacecraft Simulation
@@ -587,25 +571,46 @@ export default function SpacecraftSimulation() {
 
       {/* Mission Screen */}
       {phase === "mission" && (
-        <div className="min-h-screen bg-black relative">
-          {/* Space Background with Broken Window */}
-          {/* Layer 1 - Main background (90% size on desktop) */}
-          <div className="absolute inset-0 z-[1] flex items-center justify-center">
+        <div className="min-h-screen bg-black relative overflow-hidden">
+          {/* Layer 1 - Three.js Space Background */}
+          <div className="absolute inset-0 z-[1]">
+            <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
+              <ambientLight intensity={0.2} />
+              <pointLight position={[10, 10, 10]} intensity={1.5} />
+              <Stars 
+                radius={100} 
+                depth={50} 
+                count={8000} 
+                factor={8} 
+                saturation={0} 
+                fade 
+                speed={0.3}
+              />
+              <OrbitControls 
+                enableZoom={false} 
+                enablePan={false} 
+                autoRotate 
+                autoRotateSpeed={0.1}
+              />
+            </Canvas>
+          </div>
+
+          {/* Layer 2 - Spacecraft Interior Background */}
+          <div className="absolute inset-0 z-[2] opacity-70">
             <div 
-              className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
               style={{
-                backgroundImage: "url('/backgrounds/spacecraftBg.png')",
-                minHeight: '100vh'
+                backgroundImage: "url('/backgrounds/spacecraftBg.png')"
               }}
             ></div>
           </div>
 
           {/* Timer Display */}
-          <div className="absolute top-4 right-4 z-20">
-            <div className="bg-red-900/80 backdrop-blur-sm rounded-xl p-4 border border-red-500/50">
+          <div className="absolute top-4 right-4 z-30">
+            <div className="bg-red-900/80 backdrop-blur-sm rounded-lg p-2 border border-red-500/50">
               <div className="text-center">
-                <div className="text-sm text-red-200 mb-1">Time Remaining</div>
-                <div className={`text-3xl font-bold ${
+                <div className="text-xs text-red-200 mb-1">Time Remaining</div>
+                <div className={`text-lg font-bold ${
                   timeRemaining <= 60 ? 'text-red-400 animate-pulse' : 'text-white'
                 }`}>
                   {formatTime(timeRemaining)}
@@ -614,37 +619,125 @@ export default function SpacecraftSimulation() {
               </div>
               </div>
 
-          {/* Mission Status */}
-          <div className="absolute top-4 left-4 z-20">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="text-center">
-                <div className="text-sm text-gray-300 mb-1">Mission Phase</div>
-                <div className="text-xl font-bold text-blue-400">{missionPhase}</div>
+
+
+          {/* Space Console - Left Side */}
+          <div className="absolute top-1/3 left-4 transform -translate-y-1/2 z-30">
+            <div className="relative bg-black/70 backdrop-blur-sm rounded-2xl p-6 border-2 border-purple-400/50 shadow-2xl">
+              <img
+                src="/gifs/space-console.gif"
+                alt="Space Console"
+                className="rounded-2xl max-w-[400px] max-h-[500px] w-[300px] h-[400px] object-contain"
+                style={{
+                  filter: jarvisSpeaking ? 'none' : 'brightness(0.85) contrast(0.9) saturate(0.8)',
+                  transition: 'filter 0.5s ease-in-out'
+                }}
+              />
+              
+              {/* Console Control Buttons */}
+              <div className="absolute bottom-2 left-2 right-2 flex justify-center gap-2">
+                <button className="w-8 h-8 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-sm shadow-sm transition-colors">
+                  <div className="w-2 h-2 bg-amber-300 rounded-full mx-auto"></div>
+                </button>
+                <button className="w-8 h-8 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-sm shadow-sm transition-colors">
+                  <div className="w-2 h-2 bg-amber-300 rounded-full mx-auto"></div>
+                </button>
+                <button className="w-8 h-8 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-sm shadow-sm transition-colors">
+                  <div className="w-2 h-2 bg-amber-300 rounded-full mx-auto"></div>
+                </button>
+                <button className="w-8 h-8 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-sm shadow-sm transition-colors">
+                  <div className="w-2 h-2 bg-amber-300 rounded-full mx-auto"></div>
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Conversation History */}
-          <div className="absolute bottom-32 left-4 right-4 z-20 max-h-64 overflow-y-auto">
-            <div className="p-4">
-              <h3 className="text-lg font-bold mb-2 text-blue-400">Mission Log</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {conversationHistory.map((msg, index) => (
-                  <div key={index} className={`p-2 rounded ${
-                    msg.speaker === "JARVIS" 
-                      ? "bg-blue-900/50 border-l-4 border-blue-400" 
-                      : "bg-gray-800/50 border-l-4 border-gray-400"
-                  }`}>
-                    <div className="font-semibold text-sm text-gray-300">{msg.speaker}</div>
-                    <div className="text-white">{msg.text}</div>
-        </div>
-                ))}
+          {/* Space Dashboard - Right Side */}
+          <div className="absolute top-1/3 right-4 transform -translate-y-1/2 z-30">
+            <div className="relative bg-black/70 backdrop-blur-sm rounded-xl p-6 border-2 border-green-400/50 shadow-2xl">
+              {jarvisSpeaking ? (
+                <img
+                  key={`dashboard-active-${Date.now()}`}
+                  src="/gifs/space-dash.gif"
+                  alt="Space Dashboard"
+                  className="rounded-lg max-w-[500px] max-h-[400px] w-auto h-auto object-contain"
+                />
+              ) : (
+              <img
+                src="/gifs/space-dash.gif"
+                alt="Space Dashboard"
+                  className="rounded-lg max-w-[500px] max-h-[400px] w-auto h-auto object-contain"
+                  style={{
+                    filter: 'brightness(0.85) contrast(0.9) saturate(0.8)',
+                    animationPlayState: 'paused'
+                  }}
+                />
+              )}
+              
+              {/* Bottom Control Buttons */}
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                <div className="flex gap-3">
+                  {/* Button 1 - Red */}
+                  <button 
+                    className="w-14 h-14 bg-red-600 hover:bg-red-500 rounded-full border-3 border-red-400 shadow-xl transition-all duration-200 hover:scale-105"
+                    onClick={() => console.log("Red button clicked")}
+                  >
+                    <div className="w-4 h-4 bg-red-100 rounded-full mx-auto animate-pulse"></div>
+                  </button>
+                  
+                  {/* Button 2 - Yellow */}
+                  <button 
+                    className="w-14 h-14 bg-yellow-600 hover:bg-yellow-500 rounded-full border-3 border-yellow-400 shadow-xl transition-all duration-200 hover:scale-105"
+                    onClick={() => console.log("Yellow button clicked")}
+                  >
+                    <div className="w-4 h-4 bg-yellow-100 rounded-full mx-auto animate-pulse"></div>
+                  </button>
+                  
+                  {/* Button 3 - Green */}
+                  <button 
+                    className="w-14 h-14 bg-green-600 hover:bg-green-500 rounded-full border-3 border-green-400 shadow-xl transition-all duration-200 hover:scale-105"
+                    onClick={() => console.log("Green button clicked")}
+                  >
+                    <div className="w-4 h-4 bg-green-100 rounded-full mx-auto animate-pulse"></div>
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+
+                    {/* Central Console Chat Display */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 z-30 w-[450px] max-h-72" style={{ top: '45%' }}>
+            <div className="bg-black/20 backdrop-blur-sm border border-green-400/30 rounded-lg p-6 shadow-lg">
+              <div className="text-center mb-4">
+                <div className="text-sm font-mono text-green-400 tracking-wider opacity-70">MISSION_LOG.TXT</div>
+              </div>
+              <div className="space-y-2 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/50">
+                {conversationHistory.map((msg, index) => (
+                  <div key={index} className="font-mono text-sm">
+                    <div className={`${
+                    msg.speaker === "JARVIS" 
+                        ? "text-green-400" 
+                        : "text-green-300"
+                    } opacity-80`}>
+                      <span className="text-green-500 opacity-60">[{msg.speaker}]:</span> {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {conversationHistory.length === 0 && (
+                <div className="text-green-400/50 font-mono text-sm text-center py-6">
+                  AWAITING_TRANSMISSION...
+                </div>
+              )}
             </div>
             
-          {/* Controls */}
-          <div className="absolute bottom-4 left-4 right-4 z-20">
+
+            </div>
+            
+
+
+          {/* Voice Call Controls - Bottom Area */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: '60%' }}>
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => {
@@ -697,9 +790,9 @@ export default function SpacecraftSimulation() {
             </div>
           </div>
 
-          {/* Mic Active Indicator */}
+          {/* Mic Active Indicator - Above Call Options */}
           {micActive && (
-            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
+            <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: '55%' }}>
               <SoundWave speaking={micActive} />
             </div>
           )}

@@ -615,16 +615,7 @@ export default function Emergency911() {
         </div>
       ) : (
   <div className="relative min-h-screen overflow-hidden">
-    {/* Layer 1 - Main background (90% size on desktop) */}
-    <div className="absolute inset-0 z-[1] flex items-center justify-center">
-      <div 
-        className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('/backgrounds/emergencyBg.png')",
-          minHeight: '100vh'
-        }}
-      ></div>
-    </div>
+
     
     {/* 🚨 Animated siren overlay - above everything */}
     <div className="absolute inset-0 z-[3] animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#4f46e5,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay pointer-events-none"></div>

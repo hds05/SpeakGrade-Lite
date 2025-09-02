@@ -607,16 +607,7 @@ export default function ParkingTicket(): React.JSX.Element {
                   ></div>
                 </div>
 
-                {/* Layer 1 - Main background (90% size on desktop) */}
-                <div className="absolute inset-0 z-[1] flex items-center justify-center">
-                  <div 
-                    className="w-[70%] h-full md:w-[80%] lg:w-[85%] xl:w-[85%] bg-cover bg-center bg-no-repeat"
-                    style={{
-                      backgroundImage: "url('/backgrounds/parkingBg.png')",
-                      minHeight: '100vh'
-                    }}
-                  ></div>
-                </div>
+
                 <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
                   <div className="flex flex-wrap items-start justify-center gap-8 z-[100]">
                     <div className="flex flex-col items-center">

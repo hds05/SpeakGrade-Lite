@@ -50,9 +50,12 @@ export const LIVE_CONVERSATION_CONFIG = {
  */
 export const getLiveConversationState = (): LiveConversationState => {
   try {
-    const stored = localStorage.getItem(LIVE_CONVERSATION_CONFIG.STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
+    // Check if we're on the client side (localStorage is available)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem(LIVE_CONVERSATION_CONFIG.STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
     }
   } catch (error) {
     console.error('Error loading live conversation state:', error);
@@ -71,12 +74,15 @@ export const getLiveConversationState = (): LiveConversationState => {
  */
 export const saveLiveConversationState = (state: LiveConversationState): void => {
   try {
-    localStorage.setItem(LIVE_CONVERSATION_CONFIG.STORAGE_KEY, JSON.stringify(state));
-    
-    // Dispatch custom event to notify components
-    window.dispatchEvent(new CustomEvent('liveConversationUpdated', { 
-      detail: state 
-    }));
+    // Check if we're on the client side (localStorage is available)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(LIVE_CONVERSATION_CONFIG.STORAGE_KEY, JSON.stringify(state));
+      
+      // Dispatch custom event to notify components
+      window.dispatchEvent(new CustomEvent('liveConversationUpdated', { 
+        detail: state 
+      }));
+    }
   } catch (error) {
     console.error('Error saving live conversation state:', error);
   }
