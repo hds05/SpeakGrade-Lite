@@ -15,6 +15,13 @@ function Header(): React.JSX.Element {
         
         {/* Navigation Area */}
         <div className="flex items-center gap-4">
+          {/* Landing Page Link */}
+          <Link href="/landing" passHref>
+            <div className="hidden sm:flex items-center gap-2 text-sm text-purple-700 font-medium hover:text-purple-900 transition-all cursor-pointer">
+              Learn More
+            </div>
+          </Link>
+          
           {/* Profile Avatar */}
           <button 
             className="flex items-center gap-2 group hover:scale-105 transition-all duration-200"
