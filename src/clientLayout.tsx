@@ -4,6 +4,7 @@ import { useState, useEffect, ReactNode } from "react";
 import Image from "next/image";
 import Loader from "./app/components/loader/page";
 import Header from "./app/components/header/page";
+import ClickWaveEffect from "./app/components/clickWaveEffect/ClickWaveEffect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from 'sweetalert2';
@@ -50,6 +51,17 @@ interface CardScore {
 const componentsList: ComponentItem[] = [
   {
     id: 1,
+    title: "Basic Interview Room",
+    description:
+      "Your first interview experience! Answer 2 simple questions with friendly guidance.",
+    image: "/cards/interview-room.png",
+    path: "/cards/basicInterviewRoom",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Work", "Easy"],
+  },
+  {
+    id: 2,
     title: "Interview Room",
     description:
       "You are in a professional interview room with three interviewers. ",
@@ -57,30 +69,60 @@ const componentsList: ComponentItem[] = [
     path: "/cards/interviewRoom",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Work", "Medium"],
+  },
+  {
+    id: 3,
+    title: "Easy Weekly Check",
+    description: "Simple check-in conversation with your manager David. Perfect for beginners!",
+    image: "/cards/weekly-manager.png",
+    path: "/cards/easyWeeklyManager",
+    isLocked: false,
+    requiredScore: 0,
     tags: ["Work", "Easy"],
   },
   {
-    id: 2,
+    id: 4,
     title: "Weekly Check with Manager",
     description: "Workplace conversation with your manager.",
     image: "/cards/weekly-manager.png",
     path: "/cards/weeklyCheckWithManager",
     isLocked: false,
     requiredScore: 0,
-    tags: ["Work", "Easy"],
+    tags: ["Work", "Medium"],
   },
   {
-    id: 3,
+    id: 5,
+    title: "Easy Parking Explanation",
+    description: "Simple parking ticket conversation. Explain you couldn't find parking.",
+    image: "/cards/parking-ticket.png",
+    path: "/cards/easyParkingTicket",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Life", "Easy"],
+  },
+  {
+    id: 6,
     title: "Parking Ticket Encounter",
     description: "Police encounter - Explain your parking situation.",
     image: "/cards/parking-ticket.png",
     path: "/cards/parkingTicket",
     isLocked: false,
     requiredScore: 0,
+    tags: ["Life", "Medium"],
+  },
+  {
+    id: 7,
+    title: "Easy Hat Return",
+    description: "Simple outlet return. Just return a hat that doesn't fit properly.",
+    image: "/cards/outlet-customer.png",
+    path: "/cards/easyOutletCustomer",
+    isLocked: false,
+    requiredScore: 0,
     tags: ["Life", "Easy"],
   },
   {
-    id: 4,
+    id: 8,
     title: "Outlet Customer Service",
     description:
       "You're a customer at Fashion Outlet with multiple issues that need to be resolved at checkout.",
@@ -88,31 +130,42 @@ const componentsList: ComponentItem[] = [
     path: "/cards/outletCustomer",
     isLocked: false,
     requiredScore: 0,
-    tags: ["Life", "Easy"],
+    tags: ["Life", "Medium"],
   },
   {
-    id: 5,
+    id: 9,
     title: "Emergency 911 Dispatcher",
     description: "You have called 911. Tell them your Emergency.",
     image: "/cards/emergency-911.png",
     path: "/cards/emergency911",
     isLocked: false,
     requiredScore: 0,
-    tags: ["Life", "Easy"],
+    tags: ["Life", "Medium"],
   },
   {
-    id: 6,
+    id: 10,
     title: "Spacecraft Simulation",
     description:
-      "Take control of a spacecraft and experience the thrill of space travel.",
+      "Master advanced spacecraft controls and navigate complex deep space missions.",
     image: "/cards/spacecraft.png",
     path: "/cards/SpacecraftSimulation",
     isLocked: false,
     requiredScore: 0,
-    tags: ["Fantasy", "Easy"],
+    tags: ["Fantasy", "Hard"],
   },
   {
-    id: 7,
+    id: 11,
+    title: "Order Mix-Up",
+    description:
+      "Handle a drive-thru order with multiple mistakes at Burger Express. Fix your incorrect order professionally.",
+    image: "/cards/outlet-customer.png",
+    path: "/cards/orderMixUp",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Life", "Medium"],
+  },
+  {
+    id: 12,
     title: "English Guide Bot",
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
@@ -134,6 +187,12 @@ export default function ClientLayout({
 }: ClientLayoutProps): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState<CardScore[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dark mode toggle function
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
   
   // LOCKED LEVELS - CURRENTLY DISABLED
   // Uncomment the lines below to re-enable unlock state tracking
@@ -539,13 +598,19 @@ export default function ClientLayout({
 
   if (loading)
     return (
-      <div className="bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 h-full">
+      <div className={`h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900' : 'bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100'}`}>
         <Loader />
       </div>
     );
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 text-gray-800 overflow-hidden">
+    <ClickWaveEffect 
+      enabled={true}
+      waveColor={isDarkMode ? 'rgba(251, 191, 36, 0.7)' : 'rgba(59, 130, 246, 0.6)'}
+      waveSize={60}
+      duration={700}
+    >
+    <div className={`fixed inset-0 w-full h-full overflow-hidden ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-stone-200' : 'bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 text-gray-800'}`}>
       {/* Floating Clouds Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div>
@@ -685,19 +750,37 @@ export default function ClientLayout({
 
       {/* Foreground */}
       <div className="relative z-10 w-full h-full overflow-y-auto">
-        <Header />
+        <Header isDarkMode={isDarkMode} />
+        <div 
+          className="absolute top-32 my-10 right-8 sm:top-40 sm:right-12 md:top-44 md:right-16 lg:top-48 lg:right-20 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 animate-floatY cursor-pointer hover:scale-110 transition-transform duration-300 z-20"
+          onClick={toggleDarkMode}
+          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          <div className="gif-container w-full h-full">
+            {/* Static version - shows by default */}
         <Image
-          src="https://img.freepik.com/premium-vector/cute-yellow-sun-rise-cloud-cartoon-illustration-isolated-flat-vector_1167562-13607.jpg"
-          alt="Decorative sun"
-          width={120}
-          height={120}
-          className="absolute top-3 my-10 right-32 sm:top-[30px] sm:right-80 md:top-[5px] rounded-full w-20 h-20 sm:w-30 sm:h-30 animate-floatY"
+              src={isDarkMode ? "/gifs/moonlight-static.png" : "/gifs/sunny-static.png"}
+              alt={isDarkMode ? "Decorative moon static" : "Decorative sun static"}
+          width={isDarkMode ? 100 : 120}
+          height={isDarkMode ? 100 : 120}
+              className={`gif-static w-full h-full rounded-full object-cover ${isDarkMode ? 'scale-90' : ''}`}
           priority
         />
+            {/* Animated GIF - shows on hover */}
+            <Image
+              src={isDarkMode ? "/gifs/moonlight-gif.gif" : "/gifs/sunny-gif.gif"}
+              alt={isDarkMode ? "Decorative moon animated" : "Decorative sun animated"}
+              width={isDarkMode ? 100 : 120}
+              height={isDarkMode ? 100 : 120}
+              className={`gif-animated w-full h-full rounded-full object-cover absolute top-0 left-0 ${isDarkMode ? 'scale-90' : ''}`}
+              unoptimized={true}
+            />
+          </div>
+        </div>
         <main className="w-full flex flex-col items-center py-6 sm:py-8 lg:py-12 px-3 sm:px-6">
           <div className="w-full max-w-7xl">
             {/* Hero Section - Floating Cloud Card */}
-            <div className="relative overflow-hidden w-full rounded-3xl bg-gradient-to-r from-violet-200 to-pink-200 backdrop-blur-xl border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-6 sm:p-8 mb-8 sm:mb-10 lg:mb-12 text-center mt-8">
+            <div className={`relative overflow-hidden w-full rounded-3xl backdrop-blur-xl p-6 sm:p-8 mb-8 sm:mb-10 lg:mb-12 text-center mt-8 ${isDarkMode ? 'bg-gradient-to-r from-slate-800/80 to-blue-900/80 border border-slate-600/40 shadow-[0_20px_60px_rgba(0,0,0,0.4)]' : 'bg-gradient-to-r from-violet-200 to-pink-200 border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.08)]'}`}>
               {/* Cloud decorations - Enhanced visibility */}
               <div className="absolute -top-4 -left-4 w-16 h-16 bg-white/80 rounded-full blur-[0.5px]"></div>
               <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/80 rounded-full blur-[0.5px]"></div>
@@ -708,13 +791,13 @@ export default function ClientLayout({
 
               <div className="relative z-10">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight">
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600">
+                  <span className={`bg-clip-text text-transparent ${isDarkMode ? 'bg-gradient-to-r from-stone-200 via-amber-100 to-yellow-100' : 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600'}`}>
                     Build your speaking confidence
                   </span>
                 </h1>
-                <p className="mt-4 sm:mt-5 text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">
-                  ☁️ Choose a scenario and practice real-life conversations with
-                  AI-driven roleplay in our cloud-based learning environment.
+                <p className={`mt-4 sm:mt-5 text-sm sm:text-base lg:text-lg leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                  {isDarkMode ? '🌙' : '☁️'} Choose a scenario and practice real-life conversations with
+                  AI-driven roleplay in our {isDarkMode ? 'moonlit' : 'cloud-based'} learning environment.
                 </p>
                 
 
@@ -726,7 +809,10 @@ export default function ClientLayout({
 
                     {/* Available Cards Grid - Floating Cloud Cards */}
           <div className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">
+            <h2 className={`text-2xl sm:text-3xl font-bold mb-6 text-center ${isDarkMode ? 'text-stone-200' : 'text-gray-800'}`} 
+                style={isDarkMode ? {
+                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.7), -1px -1px 2px rgba(255, 255, 255, 0.3), 0 0 4px rgba(0, 0, 0, 0.5)'
+                } : {}}>
               🚀 Available Scenarios
             </h2>
             
@@ -734,11 +820,15 @@ export default function ClientLayout({
             <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
               {/* Type Filter */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600">Type:</span>
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>Type:</span>
                 <select 
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="px-3 py-1 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`px-3 py-1 text-sm rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-colors ${
+                    isDarkMode 
+                      ? 'bg-slate-700 border border-slate-600 text-slate-200 focus:ring-amber-500 focus:border-amber-500' 
+                      : 'bg-white border border-gray-200 text-gray-900 focus:ring-blue-500 focus:border-transparent'
+                  }`}
                 >
                   <option value="All">All</option>
                   <option value="Work">Work</option>
@@ -750,11 +840,15 @@ export default function ClientLayout({
               
               {/* Difficulty Filter */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600">Difficulty:</span>
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>Difficulty:</span>
                 <select 
                   value={selectedDifficulty}
                   onChange={(e) => setSelectedDifficulty(e.target.value)}
-                  className="px-3 py-1 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`px-3 py-1 text-sm rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-colors ${
+                    isDarkMode 
+                      ? 'bg-slate-700 border border-slate-600 text-slate-200 focus:ring-amber-500 focus:border-amber-500' 
+                      : 'bg-white border border-gray-200 text-gray-900 focus:ring-blue-500 focus:border-transparent'
+                  }`}
                 >
                   <option value="All">All</option>
                   <option value="Easy">Easy</option>
@@ -764,7 +858,7 @@ export default function ClientLayout({
               </div>
               
               {/* Results Count */}
-              <div className="text-xs text-gray-500 ml-2">
+              <div className={`text-xs ml-2 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                 {filteredComponents.length} scenario{filteredComponents.length !== 1 ? 's' : ''}
               </div>
             </div>
@@ -773,12 +867,12 @@ export default function ClientLayout({
               {filteredComponents
                 // LOCKED LEVELS - CURRENTLY DISABLED
                 // .filter(item => {
-                //   const isAdvancedCard = item.id === 7; // English Guide Bot only
+                //   const isAdvancedCard = item.id === 11; // English Guide Bot only
                 //   return !isAdvancedCard || unlockState.advancedCardsUnlocked;
                 // })
                 .map((item) => {
                   // LOCKED LEVELS - CURRENTLY DISABLED
-                  // const isAdvancedCard = item.id === 7; // English Guide Bot only
+                  // const isAdvancedCard = item.id === 8; // English Guide Bot only
                   // const isLocked = isAdvancedCard && !unlockState.advancedCardsUnlocked;
                   const cardScore = scores.find(s => s.cardId === item.title);
                   // const isNewlyUnlocked = isAdvancedCard && unlockState.advancedCardsUnlocked && unlockState.unlockedAt;
@@ -798,52 +892,98 @@ export default function ClientLayout({
                       style={{ boxShadow: "0 15px 35px rgba(0, 0, 0, 0.1)" }}
                       onClick={() => handleCardClick(item.path)}
                     >
-                      {/* Card frame - Cloud-like */}
-                      <div className="rounded-3xl bg-white/90 backdrop-blur-xl ring-1 ring-white/50 relative overflow-hidden">
+                      {/* Card frame - Clean design with special contrasting styling for English Guide Bot */}
+                      <div className={`rounded-3xl backdrop-blur-xl relative overflow-hidden transition-all duration-300 ${
+                        item.isLiveConversation
+                          ? isDarkMode
+                            ? 'bg-gradient-to-br from-red-950 to-red-900 ring-2 ring-amber-400/70 shadow-2xl shadow-amber-500/30 hover:ring-amber-300/90 hover:shadow-amber-400/40 border border-amber-500/40'
+                            : 'bg-gradient-to-br from-indigo-800 to-blue-900 ring-2 ring-cyan-500 shadow-2xl shadow-cyan-400/50 hover:ring-cyan-400 hover:shadow-cyan-300/60 border border-cyan-500'
+                          : isDarkMode ? 'bg-slate-800/90' : 'bg-white/90'
+                      } ${
+                        item.isLiveConversation
+                          ? '' // Live conversation cards have their own styling above
+                          : item.tags?.includes('Easy') 
+                          ? isDarkMode 
+                            ? 'ring-1 ring-emerald-400/40 shadow-lg shadow-slate-900/30 hover:ring-emerald-300/60 hover:shadow-slate-800/40'
+                            : 'ring-1 ring-green-300/50 shadow-lg shadow-green-100/40 hover:ring-green-400/70 hover:shadow-green-200/50'
+                          : item.tags?.includes('Medium')
+                          ? isDarkMode
+                            ? 'ring-1 ring-amber-400/40 shadow-lg shadow-slate-900/30 hover:ring-amber-300/60 hover:shadow-slate-800/40'
+                            : 'ring-1 ring-amber-300/50 shadow-lg shadow-amber-100/40 hover:ring-amber-400/70 hover:shadow-amber-200/50'
+                          : item.tags?.includes('Hard')
+                          ? isDarkMode
+                            ? 'ring-1 ring-violet-400/40 shadow-lg shadow-slate-900/30 hover:ring-violet-300/60 hover:shadow-slate-800/40'
+                            : 'ring-1 ring-purple-300/50 shadow-lg shadow-purple-100/40 hover:ring-purple-400/70 hover:shadow-purple-200/50'
+                          : isDarkMode
+                          ? 'ring-1 ring-slate-600/30 shadow-lg hover:ring-slate-500/50'
+                          : 'ring-1 ring-white/40 shadow-lg hover:ring-white/60'
+                      }`}>
                         {/* Tags */}
                         <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-wrap gap-1">
                           {item.tags?.map((tag, index) => {
                             let tagColor = "";
+                            let tagIcon = "";
                             switch (tag.toLowerCase()) {
                               case "work":
-                                tagColor = "bg-gradient-to-r from-blue-500 to-blue-600 text-white ring-1 ring-blue-300/60";
+                                tagColor = "bg-gradient-to-r from-slate-700 to-slate-800 text-white border border-slate-600/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "💼";
                                 break;
                               case "life":
-                                tagColor = "bg-gradient-to-r from-purple-500 to-purple-600 text-white ring-1 ring-purple-300/60";
+                                tagColor = "bg-gradient-to-r from-emerald-600 to-teal-700 text-white border border-emerald-500/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "🏠";
                                 break;
                               case "fantasy":
-                                tagColor = "bg-gradient-to-r from-pink-500 to-rose-600 text-white ring-1 ring-pink-300/60";
+                                tagColor = "bg-gradient-to-r from-violet-600 to-purple-700 text-white border border-violet-500/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "✨";
                                 break;
                               case "test":
-                                tagColor = "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white ring-1 ring-indigo-300/60";
+                                tagColor = "bg-gradient-to-r from-indigo-600 to-blue-700 text-white border border-indigo-500/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "📝";
                                 break;
                               case "live":
-                                tagColor = "bg-gradient-to-r from-orange-500 to-red-600 text-white ring-1 ring-orange-300/60";
+                                tagColor = "bg-gradient-to-r from-rose-600 to-pink-700 text-white border border-rose-500/40 shadow-lg backdrop-blur-sm animate-pulse";
+                                tagIcon = "🔴";
                                 break;
                               case "easy":
-                                tagColor = "bg-gradient-to-r from-green-500 to-green-600 text-white ring-1 ring-green-300/60";
+                                tagColor = "bg-gradient-to-r from-green-500 to-emerald-600 text-white border border-green-400/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "🟢";
                                 break;
                               case "medium":
-                                tagColor = "bg-gradient-to-r from-yellow-500 to-orange-500 text-white ring-1 ring-yellow-300/60";
+                                tagColor = "bg-gradient-to-r from-amber-500 to-orange-600 text-white border border-amber-400/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "🟡";
                                 break;
                               case "hard":
-                                tagColor = "bg-gradient-to-r from-red-500 to-red-600 text-white ring-1 ring-red-300/60";
+                                tagColor = "bg-gradient-to-r from-purple-500 to-indigo-600 text-white border border-purple-400/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "🟣";
                                 break;
                               default:
-                                tagColor = "bg-gradient-to-r from-gray-500 to-gray-600 text-white ring-1 ring-gray-300/60";
+                                tagColor = "bg-gradient-to-r from-gray-600 to-slate-700 text-white border border-gray-500/40 shadow-lg backdrop-blur-sm";
+                                tagIcon = "🏷️";
                             }
 
                             return (
                               <span
                                 key={index}
-                                className={`text-xs px-2 py-1 rounded-full shadow-lg font-medium ${tagColor}`}
+                                className={`text-xs px-2 py-1 font-semibold tracking-wide transition-all duration-200 hover:scale-105 ${tagColor}`}
+                                style={{
+                                  clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                                  minWidth: 'fit-content'
+                                }}
                               >
+                                <span className="mr-1">{tagIcon}</span>
                                 {tag}
                               </span>
                             );
                           })}
                           {!item.path && (
-                            <span className="text-xs px-2 py-1 rounded-full shadow-lg bg-gradient-to-r from-gray-400 to-gray-500 text-white ring-1 ring-gray-300/60 font-medium">
+                            <span 
+                              className="text-xs px-2 py-1 font-semibold tracking-wide bg-gradient-to-r from-gray-600 to-slate-700 text-white border border-gray-500/40 shadow-lg backdrop-blur-sm"
+                              style={{
+                                clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                                minWidth: 'fit-content'
+                              }}
+                            >
+                              <span className="mr-1">⏳</span>
                               Coming Soon
                             </span>
                           )}
@@ -873,26 +1013,163 @@ export default function ClientLayout({
                           </div>
                         )}
 
-                        {/* Image */}
-                        <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4 overflow-hidden">
-                          <div className="w-full h-full flex items-center justify-center rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 p-2 overflow-hidden">
+                        {/* Image with Difficulty-based Decorations */}
+                        <div className="w-full h-44 sm:h-48 flex items-center justify-center p-4 overflow-hidden relative">
+                          {/* Clean background with contrasting styling for English Guide Bot */}
+                          <div className={`w-full h-full flex items-center justify-center rounded-2xl p-2 overflow-hidden relative ${
+                            item.isLiveConversation
+                              ? isDarkMode
+                                ? 'bg-gradient-to-br from-red-900/80 to-red-800/80'
+                                : 'bg-gradient-to-br from-indigo-700 to-blue-800'
+                              : isDarkMode
+                              ? item.tags?.includes('Easy') 
+                                ? 'bg-gradient-to-br from-emerald-900/15 to-green-900/15' 
+                                : item.tags?.includes('Medium')
+                                ? 'bg-gradient-to-br from-amber-900/15 to-orange-900/15'
+                                : item.tags?.includes('Hard')
+                                ? 'bg-gradient-to-br from-violet-900/15 to-purple-900/15'
+                                : 'bg-gradient-to-br from-slate-800/15 to-blue-900/15'
+                              : item.tags?.includes('Easy') 
+                                ? 'bg-gradient-to-br from-green-50/70 to-emerald-50/70' 
+                                : item.tags?.includes('Medium')
+                                ? 'bg-gradient-to-br from-amber-50/70 to-orange-50/70'
+                                : item.tags?.includes('Hard')
+                                ? 'bg-gradient-to-br from-purple-50/70 to-indigo-50/70'
+                                : 'bg-gradient-to-br from-sky-50/70 to-blue-50/70'
+                          }`}>
+                            {/* Difficulty-based decorative corner */}
+                            {item.tags?.includes('Easy') && (
+                              <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-br-lg opacity-80">
+                                <div className="absolute top-1 left-1 text-white text-xs font-bold">✨</div>
+                              </div>
+                            )}
+                            {item.tags?.includes('Medium') && (
+                              <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-br-lg opacity-80">
+                                <div className="absolute top-1 left-1 text-white text-xs font-bold">⭐</div>
+                              </div>
+                            )}
+                            {item.tags?.includes('Hard') && !item.isLiveConversation && (
+                              <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-br-lg opacity-80">
+                                <div className="absolute top-1 left-1 text-white text-xs font-bold">⚡</div>
+                              </div>
+                            )}
+                            
+                            {/* Golden star with purple background for live conversation cards */}
+                            {item.isLiveConversation && (
+                              <div className="absolute bottom-2 right-2 w-12 h-12 z-20">
+                                <div className="relative w-full h-full">
+                                  {/* Purple badge background */}
+                                  <div className={`absolute inset-0 rounded-full transform rotate-12 ${
+                                    isDarkMode 
+                                      ? 'bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 shadow-lg shadow-purple-900/60' 
+                                      : 'bg-gradient-to-br from-purple-500 via-indigo-500 to-purple-600 shadow-lg shadow-purple-600/40'
+                                  }`}></div>
+                                  {/* Golden star icon */}
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-yellow-300 text-lg font-bold transform rotate-12 drop-shadow-sm">⭐</span>
+                                  </div>
+                                  {/* Shine effect */}
+                                  <div className="absolute top-1 left-1 w-3 h-3 bg-white/40 rounded-full transform rotate-12"></div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Image - Clean without heavy filters */}
                             <Image
                               src={item.image}
                               alt={item.title}
                               width={300}
                               height={200}
-                              className="object-contain h-full card-image"
+                              className="object-contain h-full card-image transition-all duration-300"
                               priority={item.id <= 3} // Prioritize first 3 cards
                             />
+                            
+                            {/* Subtle difficulty-based overlay pattern - much lighter */}
+                            {item.tags?.includes('Easy') && !item.isLiveConversation && (
+                              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-green-50/10 to-green-100/15 rounded-2xl pointer-events-none"></div>
+                            )}
+                            {item.tags?.includes('Medium') && !item.isLiveConversation && (
+                              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-amber-50/10 to-orange-100/15 rounded-2xl pointer-events-none"></div>
+                            )}
+                            {item.tags?.includes('Hard') && !item.isLiveConversation && (
+                              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-purple-50/10 to-indigo-100/15 rounded-2xl pointer-events-none"></div>
+                            )}
+                            {item.isLiveConversation && (
+                              <div className={`absolute inset-0 rounded-2xl pointer-events-none ${
+                                isDarkMode 
+                                  ? 'bg-gradient-to-tr from-transparent via-red-700/5 to-red-600/10' 
+                                  : 'bg-gradient-to-tr from-transparent via-indigo-600/10 to-cyan-500/15'
+                              }`}></div>
+                            )}
+                            
+                            {/* Difficulty-based bottom accent */}
+                            <div className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl ${
+                              item.isLiveConversation
+                                ? isDarkMode
+                                  ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500'
+                                  : 'bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600'
+                                : item.tags?.includes('Easy') 
+                                ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
+                                : item.tags?.includes('Medium')
+                                ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                                : item.tags?.includes('Hard')
+                                ? 'bg-gradient-to-r from-purple-400 to-indigo-500'
+                                : 'bg-gradient-to-r from-sky-400 to-blue-500'
+                            }`}></div>
                           </div>
                         </div>
 
-                        {/* Title */}
-                        <div className="p-4 sm:p-5 lg:p-6">
-                          <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight mb-2">
+                        {/* Title with difficulty indicator */}
+                        <div className={`px-4 sm:px-5 lg:px-6 pt-2 pb-4 sm:pb-5 lg:pb-6 relative ${
+                          item.isLiveConversation
+                            ? isDarkMode
+                              ? 'bg-gradient-to-b from-transparent to-red-800/25'
+                              : 'bg-gradient-to-b from-transparent to-indigo-800/30'
+                            : isDarkMode
+                            ? item.tags?.includes('Easy') 
+                              ? 'bg-gradient-to-b from-transparent to-emerald-900/20' 
+                              : item.tags?.includes('Medium')
+                              ? 'bg-gradient-to-b from-transparent to-amber-900/20'
+                              : item.tags?.includes('Hard')
+                              ? 'bg-gradient-to-b from-transparent to-violet-900/20'
+                              : 'bg-gradient-to-b from-transparent to-slate-900/20'
+                            : item.tags?.includes('Easy') 
+                              ? 'bg-gradient-to-b from-transparent to-green-50/30' 
+                              : item.tags?.includes('Medium')
+                              ? 'bg-gradient-to-b from-transparent to-amber-50/30'
+                              : item.tags?.includes('Hard')
+                              ? 'bg-gradient-to-b from-transparent to-purple-50/30'
+                              : ''
+                        }`}>
+                          <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-2 relative ${
+                            item.isLiveConversation && !isDarkMode 
+                              ? 'text-white' 
+                              : isDarkMode ? 'text-stone-200' : 'text-gray-900'
+                          }`}>
                             {item.title}
+                            {/* Difficulty level indicator */}
+                            {item.tags?.includes('Easy') && (
+                              <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                            )}
+                            {item.tags?.includes('Medium') && (
+                              <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                            )}
+                            {item.tags?.includes('Hard') && !item.isLiveConversation && (
+                              <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
+                            )}
+                            {item.isLiveConversation && (
+                              <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse shadow-lg ${
+                                isDarkMode
+                                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                                  : 'bg-gradient-to-r from-cyan-400 to-blue-600'
+                              }`}></span>
+                            )}
                           </h3>
-                          <p className="text-sm text-gray-600 sm:hidden leading-relaxed">
+                          <p className={`text-sm sm:hidden leading-relaxed ${
+                            item.isLiveConversation && !isDarkMode 
+                              ? 'text-gray-200' 
+                              : isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                          }`}>
                             {item.description}
                           </p>
 
@@ -902,9 +1179,23 @@ export default function ClientLayout({
                                 e.stopPropagation(); // Prevent card click when button is clicked
                                 handleCardClick(item.path);
                               }}
-                              className="sm:hidden mt-4 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer"
+                              className={`sm:hidden mt-4 px-6 py-2.5 rounded-2xl text-white text-sm font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer ${
+                                item.isLiveConversation
+                                  ? isDarkMode
+                                    ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-600 hover:via-yellow-600 hover:to-amber-700 shadow-amber-400/50'
+                                    : 'bg-gradient-to-r from-cyan-600 via-blue-700 to-indigo-800 hover:from-cyan-700 hover:via-blue-800 hover:to-indigo-900 shadow-cyan-500/50'
+                                  : item.tags?.includes('Easy') 
+                                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' 
+                                  : item.tags?.includes('Medium')
+                                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
+                                  : item.tags?.includes('Hard')
+                                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700'
+                                  : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700'
+                              }`}
                             >
-                              <span className="cursor-pointer">Begin Journey</span>
+                              <span className="cursor-pointer">
+                                {item.isLiveConversation ? 'Start Live Session' : item.tags?.includes('Easy') ? 'Start Easy' : item.tags?.includes('Medium') ? 'Try Medium' : item.tags?.includes('Hard') ? 'Master Hard' : 'Begin Journey'}
+                              </span>
                             </button>
                           ) : (
                             <button
@@ -929,6 +1220,13 @@ export default function ClientLayout({
                See /src/utils/LOCKED_LEVELS_README.md for re-enablement instructions.
           */}
         </main>
+        
+        {/* Minimalistic Footer */}
+        <div className="flex justify-center py-6">
+          <div className="text-xs text-gray-500 font-light tracking-wide">
+            speakgrade © 2025 B&B Global. All rights reserved.
+          </div>
+        </div>
       </div>
 
       {/* Unlock Popup - Now handled by SweetAlert2 in useEffect */}
@@ -1083,5 +1381,6 @@ export default function ClientLayout({
         }
       `}</style>
     </div>
+    </ClickWaveEffect>
   );
 }

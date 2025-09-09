@@ -60,6 +60,31 @@
   animation: drift 35s ease-in-out infinite;
 }
 
+/* Hover-based GIF animation */
+.gif-container {
+  position: relative;
+  border-radius: 50%;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.gif-animated {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gif-static {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.gif-container:hover .gif-animated {
+  opacity: 1;
+}
+
+.gif-container:hover .gif-static {
+  opacity: 0;
+}
+
 /* @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

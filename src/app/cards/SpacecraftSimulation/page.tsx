@@ -706,8 +706,8 @@ export default function SpacecraftSimulation() {
           </div>
 
                     {/* Central Console Chat Display */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 z-30 w-[450px] max-h-72" style={{ top: '45%' }}>
-            <div className="bg-black/20 backdrop-blur-sm border border-green-400/30 rounded-lg p-6 shadow-lg">
+          <div className="absolute left-1/3 transform -translate-x-1/2 z-30 w-[450px] max-h-72" style={{ top: '35%' }}>
+            <div className="bg-transparent border border-green-400/30 rounded-lg p-6 shadow-lg">
               <div className="text-center mb-4">
                 <div className="text-sm font-mono text-green-400 tracking-wider opacity-70">MISSION_LOG.TXT</div>
               </div>
@@ -792,12 +792,19 @@ export default function SpacecraftSimulation() {
 
           {/* Mic Active Indicator - Above Call Options */}
           {micActive && (
-            <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: '55%' }}>
+            <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: '50%' }}>
               <SoundWave speaking={micActive} />
             </div>
           )}
         </div>
       )}
+      
+      {/* Minimalistic Footer */}
+      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-20">
+        <div className="text-xs text-white/50 font-light tracking-wide">
+          speakgrade © 2025 B&B Global. All rights reserved.
+        </div>
+      </div>
       </div>
     );
 }

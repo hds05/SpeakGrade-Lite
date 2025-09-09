@@ -44,43 +44,16 @@ export default function EnglishGuideBot() {
 
   return (
     <EnglishGuideBotGuard>
-      <div className="w-full min-h-screen flex justify-center items-start px-3 sm:px-6 py-6">
-        <div className="relative w-full max-w-6xl min-h-[85vh] text-white rounded-2xl overflow-hidden shadow-2xl border border-white/10">
-        {/* Background Image */}
-        <div className="absolute inset-0 w-full h-full z-0">
-          {/* Large screen image */}
-          <Image
-            src="/backgrounds/englishBg.png"
-            alt="English Guide Background"
-            fill
-            className="hidden sm:block object-cover animate__animated animate__fadeIn"
-            priority
-          />
-
-          {/* Small screen image */}
-          <Image
-            src="https://as2.ftcdn.net/jpg/03/44/58/77/1000_F_344587784_tvDkmUpvgHnmYrUJAfTQqr2zST6KaC4J.jpg"
-            alt="SpeakGrade Mobile Background"
-            fill
-            className="block sm:hidden object-cover animate__animated animate__fadeIn"
-          />
-
-          {/* Layer 2 - Enhanced modern background extension */}
-          <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
+      <div className="relative min-h-screen text-white overflow-hidden">
+        {/* Layer 1 - Background Image */}
+        <div className="absolute inset-0 z-[1]">
             <div 
               className="w-full h-full bg-cover bg-center bg-no-repeat"
               style={{
-                backgroundImage: "url('/backgrounds/englishBg.png')",
-                filter: 'blur(3px) brightness(1.1)',
-                transform: 'scale(1.1)'
+              backgroundImage: "url('/backgrounds/englishBg.png')"
               }}
             ></div>
-          </div>
         </div>
-
-        {/* Glow */}
-        <div className="absolute -top-10 -left-10 w-60 h-60 sm:w-72 sm:h-72 bg-purple-500/30 rounded-full blur-3xl animate-pulse z-10" />
-        <div className="absolute -bottom-10 -right-10 w-60 h-60 sm:w-72 sm:h-72 bg-pink-500/20 rounded-full blur-2xl animate-pulse z-10" />
 
         {/* Completion Screen */}
         {showCompletion ? (
@@ -100,68 +73,72 @@ export default function EnglishGuideBot() {
             </button>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto scrollbar-hidden px-3 sm:px-6 py-6 sm:py-8 space-y-10 z-10 relative">
-            {/* Title */}
-            <div className="z-20 relative text-center space-y-4">
-              <div className="flex justify-center mb-4 sm:mb-6">
+          <div className="relative min-h-screen flex flex-col items-center justify-center z-10">
+            {/* AI Coach Avatar - Left Side */}
+            <div className="absolute top-1/3 left-4 transform -translate-y-1/2 z-30">
+              <div className="flex flex-col items-center">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">
                 <Image
-                  src="/cards/emergency-911.png"
-                  alt="SpeakGrade Logo"
-                  width={80}
-                  height={80}
-                  className="h-16 w-16 sm:h-20 sm:w-20 object-cover rounded-full border-4 border-white/20 shadow-xl"
-                  priority
-                />
-              </div>
-              <h1 className="font-extrabold text-[clamp(1.8rem,5vw,3rem)] leading-snug">
-                🚀 SpeakGrade - AI English Fluency Guide
-              </h1>
-              <p className="text-gray-300 max-w-2xl mx-auto text-xs sm:text-sm md:text-base leading-relaxed">
-                Elevate your spoken English with real-time AI assessment. Speak
-                naturally, and get instant feedback on fluency, grammar,
-                vocabulary, and clarity — all in just 3 minutes.
-              </p>
-            </div>
-
-            {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 z-20">
-              {[
-                {
-                  title: "🎙 Real-Time Speaking",
-                  desc: "Answer dynamic questions using your microphone. Our AI listens and evaluates as you speak.",
-                },
-                {
-                  title: "📊 Smart Feedback",
-                  desc: "Instant tips on grammar, sentence structure, pronunciation, and how to improve them.",
-                },
-                {
-                  title: "💡 Vocabulary Suggestions",
-                  desc: "Used a weak or wrong word? Get real-time alternatives and examples to boost your vocab.",
-                },
-                {
-                  title: "⏱ Lightning Fast",
-                  desc: "The entire test lasts only 3 minutes — speak confidently and get results instantly.",
-                },
-              ].map((feature, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white/10 backdrop-blur-sm p-4 sm:p-6 rounded-xl border border-white/10 shadow-lg hover:bg-white/20 transition-all duration-300"
-                >
-                  <h2 className="text-lg sm:text-xl font-bold">
-                    {feature.title}
-                  </h2>
-                  <p className="mt-2 text-gray-300 text-sm sm:text-base">
-                    {feature.desc}
-                  </p>
+                    src="/avatars/english-young-man.png"
+                    alt="English Coach"
+                    width={160}
+                    height={160}
+                    className="object-cover w-full h-full"
+                  />
                 </div>
-              ))}
+                <span className="mt-2 text-lg font-medium text-white bg-black rounded-full px-4 py-2 ring-2 ring-white">
+                  AI English Coach
+                </span>
+              </div>
             </div>
 
-            {/* Widget */}
+            {/* User Avatar - Right Side */}
+            <div className="absolute top-1/3 right-4 transform -translate-y-1/2 z-30">
+              <div className="flex flex-col items-center">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
+                  <Image
+                    src="/avatars/user-avatar.png"
+                    alt="You"
+                    width={160}
+                    height={160}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+                <span className="mt-2 text-lg font-medium text-white bg-black rounded-full px-4 py-2 ring-2 ring-white">
+                  You
+                </span>
+              </div>
+            </div>
+
+            {/* Conversation Wave Animation - Between Avatars */}
             {showWidget && (
-              <>
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+                <div className="flex items-center justify-center space-x-1">
+                  {[...Array(7)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-gradient-to-t from-blue-500 to-green-400 rounded-full"
+                      style={{
+                        height: `${10 + (i === 3 ? 25 : Math.sin(i) * 15 + 15)}px`,
+                        animation: `speechWave 0.8s ease-in-out infinite`,
+                        animationDelay: `${i * 0.1}s`
+                      }}
+                    />
+                  ))}
+                </div>
+                <style jsx>{`
+                  @keyframes speechWave {
+                    0%, 100% { transform: scaleY(0.3); opacity: 0.6; }
+                    50% { transform: scaleY(1); opacity: 1; }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {/* Centered Widget (Hidden) */}
+            {showWidget && (
+              <div className="z-30 flex justify-center items-center opacity-0 pointer-events-none">
                 <div
-                  className="z-20 relative w-full flex justify-center"
                   dangerouslySetInnerHTML={{
                     __html: `<elevenlabs-convai agent-id="agent_4501k1tk0ntff8rv8et3d804erbq"></elevenlabs-convai>`,
                   }}
@@ -170,11 +147,27 @@ export default function EnglishGuideBot() {
                   src="https://unpkg.com/@elevenlabs/convai-widget-embed"
                   strategy="afterInteractive"
                 />
-              </>
+              </div>
             )}
+
+            {/* Title - Top Center */}
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30 text-center">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                🚀 AI English Fluency Guide
+              </h1>
+              <p className="text-sm text-gray-300 mt-2">
+                Speak naturally and get instant feedback
+              </p>
+            </div>
           </div>
         )}
-      </div>
+        
+        {/* Minimalistic Footer */}
+        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="text-xs text-white/50 font-light tracking-wide">
+            speakgrade © 2025 B&B Global. All rights reserved.
+          </div>
+        </div>
     </div>
     </EnglishGuideBotGuard>
   );

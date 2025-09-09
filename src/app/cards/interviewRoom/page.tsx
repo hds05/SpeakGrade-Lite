@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import Header from "@/app/components/header/page";
 import Loader from "@/app/components/loader/page";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
