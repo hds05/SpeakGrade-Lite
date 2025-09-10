@@ -1141,7 +1141,7 @@ export default function ClientLayout({
                               ? 'bg-gradient-to-b from-transparent to-purple-50/30'
                               : ''
                         }`}>
-                          <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-2 relative ${
+                          <h3 className={`text-lg sm:text-md font-bold tracking-tight mb-2 relative ${
                             item.isLiveConversation && !isDarkMode 
                               ? 'text-white' 
                               : isDarkMode ? 'text-stone-200' : 'text-gray-900'

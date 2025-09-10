@@ -20,11 +20,11 @@ function Header({ isDarkMode = false }: HeaderProps): React.JSX.Element {
         {/* Navigation Area */}
         <div className="flex items-center gap-4">
           {/* Landing Page Link */}
-          <Link href="/landing" passHref>
+          {/* <Link href="/" passHref>
             <div className={`hidden sm:flex items-center gap-2 text-sm font-medium transition-all cursor-pointer ${isDarkMode ? 'text-slate-300 hover:text-stone-200' : 'text-purple-700 hover:text-purple-900'}`}>
               Learn More
             </div>
-          </Link>
+          </Link> */}
           
           {/* Profile Avatar */}
           <button 
@@ -48,12 +48,12 @@ function Header({ isDarkMode = false }: HeaderProps): React.JSX.Element {
           </button>
 
           {/* Upgrade Link */}
-          <Link href="/cards/upsell" passHref>
+          {/* <Link href="/cards/upsell" passHref>
             <div className={`flex items-center gap-2 text-sm sm:text-base font-medium transition-all cursor-pointer animate-bounce ${isDarkMode ? 'text-amber-200 hover:text-amber-100' : 'text-purple-700 hover:text-purple-900'}`}>
               Upgrade
               <ArrowRightIcon className="w-5 h-5" />
             </div>
-          </Link>
+          </Link> */}
         </div>
       </div>
       

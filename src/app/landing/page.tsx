@@ -239,20 +239,20 @@ export default function LandingPage(): React.JSX.Element {
         >
           SpeakGrade
         </motion.div>
-        <div className="flex gap-4">
-          <Link
-            href="/"
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/landing"
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200"
-          >
-            Learn More
-          </Link>
-        </div>
+         <div className="flex gap-4">
+           <Link
+             href="/dashboard"
+             className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+           >
+             Dashboard
+           </Link>
+           <Link
+             href="/"
+             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200"
+           >
+             Learn More
+           </Link>
+         </div>
       </motion.nav>
 
       {/* Hero Section */}
@@ -294,7 +294,7 @@ export default function LandingPage(): React.JSX.Element {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
           >
             <Link
-              href="/"
+              href="/dashboard"
               className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             >
               <span className="flex items-center gap-2">
@@ -729,7 +729,7 @@ export default function LandingPage(): React.JSX.Element {
               Join thousands of users who have already improved their speaking confidence with SpeakGrade.
             </p>
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             >
               Start Your Journey Today
@@ -755,10 +755,10 @@ export default function LandingPage(): React.JSX.Element {
             Master communication with AI-powered practice
           </p>
           <div className="flex justify-center gap-6">
-            <Link href="/" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
+            <Link href="/dashboard" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
               Dashboard
             </Link>
-            <Link href="/landing" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
+            <Link href="/" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
               About
             </Link>
             <Link href="/" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
@@ -767,6 +767,12 @@ export default function LandingPage(): React.JSX.Element {
           </div>
         </div>
       </motion.footer>
+      {/* Minimalistic Footer */}
+      <div className="flex justify-center py-6">
+          <div className="text-xs text-gray-500 font-light tracking-wide">
+            speakgrade © 2025 B&B Global. All rights reserved.
+          </div>
+        </div>
     </div>
   );
 }
