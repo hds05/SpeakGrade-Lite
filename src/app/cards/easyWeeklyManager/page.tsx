@@ -38,7 +38,7 @@ export default function EasyWeeklyManager() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000);
+    const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -68,18 +68,18 @@ export default function EasyWeeklyManager() {
   // Auto-process user response when they stop speaking
   useEffect(() => {
     console.log("🔍 useEffect triggered:", { conversationStarted, micActive, listening, transcript: transcript.substring(0, 50) });
-    if (!conversationStarted || !micActive) {
-      console.log("⚠️ Not processing: conversationStarted=", conversationStarted, "micActive=", micActive);
+    if (!conversationStarted) {
+      console.log("⚠️ Not processing: conversationStarted=", conversationStarted);
       return;
     }
-    if (!listening && transcript.trim()) {
+    if (!listening && transcript.trim() && transcript.trim().length > 3) {
       console.log("🎤 Processing user response:", transcript);
       processUserResponse(transcript);
       resetTranscript();
     } else {
       console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
     }
-  }, [listening, transcript, conversationStarted, micActive, processUserResponse]);
+  }, [listening, transcript, conversationStarted, processUserResponse]);
 
   // Unlock audio context on first user interaction
   const unlockAudio = () => {
@@ -129,7 +129,6 @@ export default function EasyWeeklyManager() {
 
   // Get manager's response
   const getManagerResponse = async (userMessage?: string) => {
-    setLoading(true);
     console.log(`🎤 Getting manager response for: ${userMessage}`);
     
     try {
@@ -182,8 +181,6 @@ export default function EasyWeeklyManager() {
       }
     } catch (error) {
       console.error("Error getting manager response:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -237,6 +234,29 @@ export default function EasyWeeklyManager() {
     }
   };
 
+  // Handle mute/unmute
+  const handleMute = () => {
+    if (micActive) {
+      SpeechRecognition.stopListening();
+      setMicActive(false);
+    } else {
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
+      setMicActive(true);
+    }
+  };
+
+  // Stop conversation
+  const handleStopConversation = () => {
+    SpeechRecognition.stopListening();
+    setConversationStarted(false);
+    setMicActive(false);
+    endConversation();
+  };
+
   const endConversation = async () => {
     setPhase("completed");
     setConversationStarted(false);
@@ -279,7 +299,7 @@ export default function EasyWeeklyManager() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black/80 to-gray-400 flex items-center justify-center">
+      <div className="bg-white">
         <Loader />
       </div>
     );
@@ -429,14 +449,29 @@ export default function EasyWeeklyManager() {
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6">
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-semibold text-white mb-2">Your Response</h3>
-                  <p className="text-blue-200">Click the microphone to speak with your manager</p>
+                  <p className="text-blue-200">Use the controls below to manage your microphone</p>
                 </div>
 
                 <div className="flex flex-col items-center space-y-4">
-                  {/* Automatic processing - no manual controls needed */}
+                  {/* Microphone Controls */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleMute}
+                      className="px-4 py-2 rounded-lg bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors"
+                    >
+                      {micActive ? "🔇 Mute" : "🎤 Unmute"}
+                    </button>
+                    <button
+                      onClick={handleStopConversation}
+                      className="px-6 py-2 rounded-lg bg-rose-600 text-white font-medium hover:bg-rose-700 transition-colors"
+                    >
+                      🛑 End Conversation
+                    </button>
+                  </div>
+
                   <div className="text-center">
                     <p className="text-white text-lg font-semibold mb-2">
-                      {micActive ? "🎤 Speak naturally - I'm listening!" : "👂 Waiting for you to speak..."}
+                      {micActive ? "🎤 Speak naturally - I'm listening!" : "👂 Microphone is muted"}
                     </p>
                     {transcript && (
                       <div className="bg-white/20 rounded-xl p-4 mb-4">
