@@ -13,6 +13,7 @@ import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function EasyWeeklyManager() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
+  const [questionNumber, setQuestionNumber] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -21,7 +22,7 @@ export default function EasyWeeklyManager() {
   const [micActive, setMicActive] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(10); // Simple scoring for easy version
+  const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const router = useRouter();
 
@@ -51,6 +52,7 @@ export default function EasyWeeklyManager() {
   // Handle user response automatically
   const processUserResponse = useCallback(async (response: string) => {
     console.log("🗣️ User responded:", response);
+    console.log("🎯 Current question number:", questionNumber);
     
     SpeechRecognition.stopListening();
     setMicActive(false);
@@ -62,8 +64,19 @@ export default function EasyWeeklyManager() {
     };
 
     setHistory(prev => [...prev, userMessage]);
-    await getManagerResponse(response);
-  }, []);
+
+    if (questionNumber === 1) {
+      // First answer - get AI follow-up question (single API call)
+      console.log("🤖 Getting AI follow-up based on user's weekly update...");
+      await getAIFollowUpQuestion(response);
+      setQuestionNumber(2);
+    } else if (questionNumber === 2) {
+      // Second answer - end with thank you message (no API call)
+      console.log("🎉 Weekly check-in complete, showing thank you message...");
+      await showThankYouMessage();
+      endConversation();
+    }
+  }, [questionNumber]);
 
   // Auto-process user response when they stop speaking
   useEffect(() => {
@@ -104,6 +117,14 @@ export default function EasyWeeklyManager() {
     }
   };
 
+  // Random initial questions - no API call needed
+  const initialQuestions = [
+    "Good morning! How has your week been going so far? I'd love to hear about what you've been working on.",
+    "Hi there! Let's do our weekly check-in. Can you walk me through what you've accomplished this week?",
+    "Hello! Time for our weekly update. What have been your main focus areas this week?",
+    "Hey! Ready for our weekly sync? Tell me about the projects you've been involved in this week."
+  ];
+
   const startConversation = async () => {
     // Request microphone permission first
     const micPermission = await requestMicrophonePermission();
@@ -116,6 +137,7 @@ export default function EasyWeeklyManager() {
     setShowIntroPopup(false);
     setConversationStarted(true);
     setPhase("conversation");
+    setQuestionNumber(1);
     
     // Clear old data
     resetTranscript();
@@ -123,65 +145,85 @@ export default function EasyWeeklyManager() {
     setFeedback(null);
     setScore(0);
     
-    // Start with manager's greeting
-    await getManagerResponse();
+    // Start with random initial question (no API call)
+    const randomQuestion = initialQuestions[Math.floor(Math.random() * initialQuestions.length)];
+    console.log(`🎤 Starting with random question: ${randomQuestion}`);
+    
+    const initialMessage = {
+      role: "assistant",
+      content: randomQuestion,
+      speaker: manager.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory([initialMessage]);
+    await playVoice(randomQuestion, manager.name);
+    
+    // Enable mic for user response
+    setMicActive(true);
+    SpeechRecognition.startListening({ continuous: true });
   };
 
-  // Get manager's response
-  const getManagerResponse = async (userMessage?: string) => {
-    console.log(`🎤 Getting manager response for: ${userMessage}`);
+  // Get AI follow-up question based on user's weekly update (single API call)
+  const getAIFollowUpQuestion = async (userAnswer: string) => {
+    console.log(`🤖 Getting AI follow-up for weekly update: ${userAnswer}`);
     
     try {
       const res = await fetch("/api/easyWeeklyManager/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userMessage: userMessage || "",
+          userMessage: userAnswer,
           conversationHistory: history,
+          questionNumber: 2, // This indicates it's the follow-up question
         }),
       });
 
       const data = await res.json();
-      console.log(`🤖 Manager responded:`, data);
+      console.log(`🤖 AI follow-up response:`, data);
 
       const reply = data?.conversation?.text || data.text || data.reply || "";
       
-      // Store feedback if provided
-      if (data.feedback) {
-        setFeedback(data.feedback);
-        console.log("📊 Received feedback:", data.feedback);
-      }
-
       // Store score data if provided
       if (data.score) {
         setScore(prev => prev + data.score.points);
         console.log("📊 Received score:", data.score);
       }
 
-      // Check if conversation should end
-      if (data.endConversation) {
-        endConversation();
-        return;
-      }
-
       if (reply.trim()) {
-        const newMessage = {
+        const followUpMessage = {
           role: "assistant",
           content: reply,
           speaker: manager.name,
           timestamp: Date.now(),
         };
 
-        setHistory(prev => [...prev, newMessage]);
+        setHistory(prev => [...prev, followUpMessage]);
         await playVoice(reply, manager.name);
         
-        // Enable mic for user response after manager finishes speaking
+        // Enable mic for final user response
         setMicActive(true);
         SpeechRecognition.startListening({ continuous: true });
       }
     } catch (error) {
-      console.error("Error getting manager response:", error);
+      console.error("Error getting AI follow-up question:", error);
     }
+  };
+
+  // Show thank you message (no API call)
+  const showThankYouMessage = async () => {
+    const thankYouMessage = "Great work this week! Thanks for the update. Keep up the excellent progress and let me know if you need any support.";
+    console.log(`🎉 Ending with: ${thankYouMessage}`);
+    
+    const finalMessage = {
+      role: "assistant",
+      content: thankYouMessage,
+      speaker: manager.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory(prev => [...prev, finalMessage]);
+    await playVoice(thankYouMessage, manager.name);
   };
 
   // Play audio from TTS
@@ -261,21 +303,27 @@ export default function EasyWeeklyManager() {
     setPhase("completed");
     setConversationStarted(false);
     
-    // Generate final feedback if not already provided
-    if (!feedback) {
-      const finalFeedback = {
-        feedback: `Great job with your weekly check-in! You communicated well with your manager and showed good professionalism. Your score is ${score} out of ${maxScore}.`,
-        score: score,
-        maxScore: maxScore
-      };
-      setFeedback(finalFeedback);
-    }
+    // Calculate score based on participation (simple scoring for easy level)
+    const participationScore = Math.min(20, Math.max(5, score + 10)); // Bonus for completing check-in
+    setScore(participationScore);
     
+    // Generate final feedback
+    const finalFeedback = {
+      feedback: `Excellent work with your weekly check-in! You provided clear updates about your work and engaged professionally with your manager. This demonstrates strong communication skills and workplace professionalism.`,
+      score: participationScore,
+      maxScore: 20
+    };
+    
+    setFeedback(finalFeedback);
     setShowCompletion(true);
 
     // Save the score
     try {
-      await saveScenarioScore("Easy Weekly Manager Check", score, (score/maxScore) * 100);
+      saveScenarioScore({
+        cardId: "Easy Weekly Manager Check",
+        score: participationScore,
+        maxScore: 20
+      });
     } catch (error) {
       console.error("Error saving score:", error);
     }
@@ -285,13 +333,13 @@ export default function EasyWeeklyManager() {
     if (!feedback) return;
     
     const reportData = {
-      scenarioName: "Easy Weekly Manager Check",
+      title: "Easy Weekly Manager Check Report",
+      scenario: "Weekly Check-in Practice",
+      completionDate: new Date().toLocaleDateString(),
       score: score,
       maxScore: maxScore,
-      percentage: Math.round((score / maxScore) * 100),
       feedback: feedback.feedback,
       conversationHistory: history,
-      completedAt: new Date().toISOString(),
     };
 
     generatePDFReport(reportData);
@@ -396,7 +444,7 @@ export default function EasyWeeklyManager() {
                     />
                     {speakingIndex === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <SoundWave />
+                        <SoundWave speaking={true} />
                       </div>
                     )}
                   </div>
