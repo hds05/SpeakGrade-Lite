@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   ChatBubbleLeftRightIcon,
   AcademicCapIcon,
@@ -15,8 +16,30 @@ import {
   StarIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
+import ConditionalNavigation from "../components/conditionalNavigation/page";
 
 export default function LandingPage(): React.JSX.Element {
+  const [isPurchased, setIsPurchased] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check if user has purchased on component mount
+  useEffect(() => {
+    const checkPurchaseStatus = () => {
+      try {
+        const purchaseStatus = localStorage.getItem('speakgrade_purchase_status');
+        if (purchaseStatus === 'purchased') {
+          setIsPurchased(true);
+        }
+      } catch (error) {
+        console.error('Error checking purchase status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkPurchaseStatus();
+  }, []);
+
   const features = [
     {
       icon: <ChatBubbleLeftRightIcon className="w-8 h-8 text-blue-500" />,
@@ -239,20 +262,7 @@ export default function LandingPage(): React.JSX.Element {
         >
           SpeakGrade
         </motion.div>
-         <div className="flex gap-4">
-           <Link
-             href="/dashboard"
-             className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-           >
-             Dashboard
-           </Link>
-           <Link
-             href="/"
-             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200"
-           >
-             Learn More
-           </Link>
-         </div>
+         <ConditionalNavigation />
       </motion.nav>
 
       {/* Hero Section */}
@@ -293,15 +303,29 @@ export default function LandingPage(): React.JSX.Element {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
           >
-            <Link
-              href="/dashboard"
-              className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-            >
-              <span className="flex items-center gap-2">
-                Start Practicing
-                <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
-              </span>
-            </Link>
+            {isLoading ? (
+              <div className="animate-pulse bg-gray-300 rounded-xl h-14 w-48"></div>
+            ) : isPurchased ? (
+              <Link
+                href="/dashboard"
+                className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                <span className="flex items-center gap-2">
+                  Start Practicing
+                  <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                </span>
+              </Link>
+            ) : (
+              <Link
+                href="/purchase"
+                className="group px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                <span className="flex items-center gap-2">
+                  Get Lite Version
+                  <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                </span>
+              </Link>
+            )}
             
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -728,13 +752,25 @@ export default function LandingPage(): React.JSX.Element {
             <p className="text-lg sm:text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
               Join thousands of users who have already improved their speaking confidence with SpeakGrade.
             </p>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-            >
-              Start Your Journey Today
-              <ArrowRightIcon className="w-5 h-5" />
-            </Link>
+            {isLoading ? (
+              <div className="animate-pulse bg-gray-300 rounded-xl h-14 w-48 mx-auto"></div>
+            ) : isPurchased ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                Start Your Journey Today
+                <ArrowRightIcon className="w-5 h-5" />
+              </Link>
+            ) : (
+              <Link
+                href="/purchase"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                Get Lite Version 
+                <ArrowRightIcon className="w-5 h-5" />
+              </Link>
+            )}
           </div>
         </motion.div>
       </motion.section>
@@ -754,17 +790,7 @@ export default function LandingPage(): React.JSX.Element {
           <p className="text-gray-600 mb-4">
             Master communication with AI-powered practice
           </p>
-          <div className="flex justify-center gap-6">
-            <Link href="/dashboard" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
-              Dashboard
-            </Link>
-            <Link href="/" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
-              About
-            </Link>
-            <Link href="/" className="text-gray-600 hover:text-gray-800 transition-colors duration-200">
-              Contact
-            </Link>
-          </div>
+          
         </div>
       </motion.footer>
       {/* Minimalistic Footer */}

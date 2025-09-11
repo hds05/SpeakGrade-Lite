@@ -829,6 +829,12 @@ export default function UpsellPage(): React.JSX.Element {
           </div>
         </motion.div>
       </motion.div>
+      {/* Minimalistic Footer */}
+      <div className="flex justify-center py-6">
+          <div className="text-xs text-gray-100 font-light tracking-wide">
+            speakgrade © 2025 B&B Global. All rights reserved.
+          </div>
+        </div>
 
       {/* Custom CSS animations */}
       <style jsx>{`
