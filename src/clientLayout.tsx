@@ -651,7 +651,7 @@ export default function ClientLayout({
             height={80}
             className="absolute bottom-18 right-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-40 md:h-20 lg:w-48 lg:h-20 xl:w-56 xl:h-20 opacity-75 animate-floatX"
           />
-          <Image
+          {/* <Image
             src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
             width={500}
@@ -671,8 +671,8 @@ export default function ClientLayout({
             width={128}
             height={64}
             className="absolute top-80 left-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-70 animate-floatX"
-          />
-          <Image
+          /> */}
+          {/* <Image
             src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
             width={112}
@@ -699,8 +699,8 @@ export default function ClientLayout({
             width={120}
             height={60}
             className="absolute top-56 right-2 w-14 h-7 sm:w-18 sm:h-9 md:w-22 md:h-11 lg:w-26 lg:h-13 xl:w-30 xl:h-15 opacity-75 animate-floatX"
-          />
-          <Image
+          /> */}
+          {/* <Image
             src="/backgrounds/cartooncloud.webp"
             alt="Floating cloud"
             width={144}
@@ -742,7 +742,7 @@ export default function ClientLayout({
             width={128}
             height={64}
             className="absolute bottom-16 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-80 animate-floatX"
-          />
+          /> */}
         </div>
         {/* Gentle mist effect */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/15 to-transparent"></div>
