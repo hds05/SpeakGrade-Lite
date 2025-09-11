@@ -13,6 +13,7 @@ import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function EasyParkingTicket() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
+  const [questionNumber, setQuestionNumber] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -21,7 +22,7 @@ export default function EasyParkingTicket() {
   const [micActive, setMicActive] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(10);
+  const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [explanationGiven, setExplanationGiven] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const router = useRouter();
@@ -52,6 +53,7 @@ export default function EasyParkingTicket() {
   // Handle user response automatically
   const processUserResponse = useCallback(async (response: string) => {
     console.log("🗣️ User responded:", response);
+    console.log("🎯 Current question number:", questionNumber);
     
     SpeechRecognition.stopListening();
     setMicActive(false);
@@ -63,8 +65,19 @@ export default function EasyParkingTicket() {
     };
 
     setHistory(prev => [...prev, userMessage]);
-    await getOfficerResponse(response);
-  }, []);
+
+    if (questionNumber === 1) {
+      // First answer - get AI follow-up question (single API call)
+      console.log("🤖 Getting AI follow-up based on user's parking explanation...");
+      await getAIFollowUpQuestion(response);
+      setQuestionNumber(2);
+    } else if (questionNumber === 2) {
+      // Second answer - end with ticket message (no API call)
+      console.log("🎫 Ending with ticket notice...");
+      await showTicketMessage();
+      endConversation();
+    }
+  }, [questionNumber]);
 
   // Auto-process user response when they stop speaking
   useEffect(() => {
@@ -105,6 +118,14 @@ export default function EasyParkingTicket() {
     }
   };
 
+  // Random initial questions - no API call needed
+  const initialQuestions = [
+    "I need to issue you a parking ticket. This is a no-parking zone. Can you explain why you parked here?",
+    "Excuse me, you're parked illegally in this area. Do you have a reason for parking in this no-parking zone?",
+    "I'm writing you a citation for parking in a restricted area. Can you tell me why you chose to park here?",
+    "You're in violation of parking regulations here. What's your explanation for parking in this prohibited zone?"
+  ];
+
   const startConversation = async () => {
     // Request microphone permission first
     const micPermission = await requestMicrophonePermission();
@@ -117,6 +138,7 @@ export default function EasyParkingTicket() {
     setShowIntroPopup(false);
     setConversationStarted(true);
     setPhase("conversation");
+    setQuestionNumber(1);
     
     // Clear old data
     resetTranscript();
@@ -125,36 +147,45 @@ export default function EasyParkingTicket() {
     setScore(0);
     setExplanationGiven(false);
     
-    // Start with officer's approach
-    await getOfficerResponse();
+    // Start with random initial question (no API call)
+    const randomQuestion = initialQuestions[Math.floor(Math.random() * initialQuestions.length)];
+    console.log(`🎤 Starting with random question: ${randomQuestion}`);
+    
+    const initialMessage = {
+      role: "assistant",
+      content: randomQuestion,
+      speaker: officer.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory([initialMessage]);
+    await playVoice(randomQuestion, officer.name);
+    
+    // Enable mic for user response
+    setMicActive(true);
+    SpeechRecognition.startListening({ continuous: true });
   };
 
-  // Get officer's response
-  const getOfficerResponse = async (userMessage?: string) => {
-    console.log(`🎤 Getting officer response for: ${userMessage}`);
+  // Get AI follow-up question based on user's parking explanation (single API call)
+  const getAIFollowUpQuestion = async (userAnswer: string) => {
+    console.log(`🤖 Getting AI follow-up for parking explanation: ${userAnswer}`);
     
     try {
       const res = await fetch("/api/easyParkingTicket/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userMessage: userMessage || "",
+          userMessage: userAnswer,
           conversationHistory: history,
-          explanationGiven: explanationGiven,
+          questionNumber: 2, // This indicates it's the follow-up question
         }),
       });
 
       const data = await res.json();
-      console.log(`🤖 Officer responded:`, data);
+      console.log(`🤖 AI follow-up response:`, data);
 
       const reply = data?.conversation?.text || data.text || data.reply || "";
       
-      // Store feedback if provided
-      if (data.feedback) {
-        setFeedback(data.feedback);
-        console.log("📊 Received feedback:", data.feedback);
-      }
-
       // Store score data if provided
       if (data.score) {
         setScore(prev => prev + data.score.points);
@@ -166,30 +197,40 @@ export default function EasyParkingTicket() {
         setExplanationGiven(data.explanationGiven);
       }
 
-      // Check if conversation should end
-      if (data.endConversation) {
-        endConversation();
-        return;
-      }
-
       if (reply.trim()) {
-        const newMessage = {
+        const followUpMessage = {
           role: "assistant",
           content: reply,
           speaker: officer.name,
           timestamp: Date.now(),
         };
 
-        setHistory(prev => [...prev, newMessage]);
+        setHistory(prev => [...prev, followUpMessage]);
         await playVoice(reply, officer.name);
         
-        // Enable mic for user response after officer finishes speaking
+        // Enable mic for final user response
         setMicActive(true);
         SpeechRecognition.startListening({ continuous: true });
       }
     } catch (error) {
-      console.error("Error getting officer response:", error);
+      console.error("Error getting AI follow-up question:", error);
     }
+  };
+
+  // Show ticket message (no API call)
+  const showTicketMessage = async () => {
+    const ticketMessage = "I understand your situation, but I still have to give you the ticket. Please be more careful about parking regulations in the future.";
+    console.log(`🎫 Ending with: ${ticketMessage}`);
+    
+    const finalMessage = {
+      role: "assistant",
+      content: ticketMessage,
+      speaker: officer.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory(prev => [...prev, finalMessage]);
+    await playVoice(ticketMessage, officer.name);
   };
 
   // Play audio from TTS
@@ -270,21 +311,27 @@ export default function EasyParkingTicket() {
     setPhase("completed");
     setConversationStarted(false);
     
-    // Generate final feedback if not already provided
-    if (!feedback) {
-      const finalFeedback = {
-        feedback: `Good job explaining your parking situation! You ${explanationGiven ? 'provided a clear explanation about the lack of parking' : 'communicated with the officer'}. Your score is ${score} out of ${maxScore}.`,
-        score: score,
-        maxScore: maxScore
-      };
-      setFeedback(finalFeedback);
-    }
+    // Calculate score based on participation (simple scoring for easy level)
+    const participationScore = Math.min(20, Math.max(5, score + 10)); // Bonus for completing conversation
+    setScore(participationScore);
     
+    // Generate final feedback
+    const finalFeedback = {
+      feedback: `Good job handling this parking situation! You communicated respectfully with the officer and ${explanationGiven ? 'provided a clear explanation for your parking' : 'engaged professionally throughout the interaction'}. This demonstrates good conflict resolution skills.`,
+      score: participationScore,
+      maxScore: 20
+    };
+    
+    setFeedback(finalFeedback);
     setShowCompletion(true);
 
     // Save the score
     try {
-      await saveScenarioScore("Easy Parking Ticket", score, (score/maxScore) * 100);
+      saveScenarioScore({
+        cardId: "Easy Parking Ticket",
+        score: participationScore,
+        maxScore: 20
+      });
     } catch (error) {
       console.error("Error saving score:", error);
     }
@@ -294,13 +341,13 @@ export default function EasyParkingTicket() {
     if (!feedback) return;
     
     const reportData = {
-      scenarioName: "Easy Parking Ticket",
+      title: "Easy Parking Ticket Report",
+      scenario: "Parking Violation Practice",
+      completionDate: new Date().toLocaleDateString(),
       score: score,
       maxScore: maxScore,
-      percentage: Math.round((score / maxScore) * 100),
       feedback: feedback.feedback,
       conversationHistory: history,
-      completedAt: new Date().toISOString(),
     };
 
     generatePDFReport(reportData);
@@ -384,6 +431,9 @@ export default function EasyParkingTicket() {
           <div className="container mx-auto px-4 py-8">
             {/* Status indicators */}
             <div className="mb-8 flex justify-center gap-4">
+              <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
+                Question: {questionNumber}/2
+              </span>
               <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
                 Score: {score}/{maxScore}
               </span>

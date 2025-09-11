@@ -13,6 +13,7 @@ import { saveScenarioScore } from "@/utils/scoreManager";
 
 export default function EasyOutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
+  const [questionNumber, setQuestionNumber] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -21,7 +22,7 @@ export default function EasyOutletCustomer() {
   const [micActive, setMicActive] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(10);
+  const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [hatReturned, setHatReturned] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const router = useRouter();
@@ -52,6 +53,7 @@ export default function EasyOutletCustomer() {
   // Handle user response automatically
   const processUserResponse = useCallback(async (response: string) => {
     console.log("🗣️ User responded:", response);
+    console.log("🎯 Current question number:", questionNumber);
     
     SpeechRecognition.stopListening();
     setMicActive(false);
@@ -63,8 +65,19 @@ export default function EasyOutletCustomer() {
     };
 
     setHistory(prev => [...prev, userMessage]);
-    await getCashierResponse(response);
-  }, []);
+
+    if (questionNumber === 1) {
+      // First answer - get general follow-up question (single API call)
+      console.log("🤖 Getting general follow-up about the return...");
+      await getAIFollowUpQuestion(response);
+      setQuestionNumber(2);
+    } else if (questionNumber === 2) {
+      // Second answer - accept the return (no API call)
+      console.log("✅ Accepting the return...");
+      await showAcceptanceMessage();
+      endConversation();
+    }
+  }, [questionNumber]);
 
   // Auto-process user response when they stop speaking
   useEffect(() => {
@@ -105,6 +118,14 @@ export default function EasyOutletCustomer() {
     }
   };
 
+  // Random initial questions - no API call needed
+  const initialQuestions = [
+    "Hi there! Welcome to our store. How can I help you today?",
+    "Good afternoon! What can I assist you with today?",
+    "Hello! Welcome in. Is there something I can help you find or take care of for you?",
+    "Hi! Thanks for coming in. What brings you to our store today?"
+  ];
+
   const startConversation = async () => {
     // Request microphone permission first
     const micPermission = await requestMicrophonePermission();
@@ -117,6 +138,7 @@ export default function EasyOutletCustomer() {
     setShowIntroPopup(false);
     setConversationStarted(true);
     setPhase("conversation");
+    setQuestionNumber(1);
     
     // Clear old data
     resetTranscript();
@@ -125,71 +147,74 @@ export default function EasyOutletCustomer() {
     setScore(0);
     setHatReturned(false);
     
-    // Start with cashier's greeting
-    await getCashierResponse();
+    // Start with random initial question (no API call)
+    const randomQuestion = initialQuestions[Math.floor(Math.random() * initialQuestions.length)];
+    console.log(`🎤 Starting with random question: ${randomQuestion}`);
+    
+    const initialMessage = {
+      role: "assistant",
+      content: randomQuestion,
+      speaker: cashier.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory([initialMessage]);
+    await playVoice(randomQuestion, cashier.name);
+    
+    // Enable mic for user response
+    setMicActive(true);
+    SpeechRecognition.startListening({ continuous: true });
   };
 
-  // Get cashier's response
-  const getCashierResponse = async (userMessage?: string) => {
-    console.log(`🎤 Getting cashier response for: ${userMessage}`);
+  // Get AI follow-up question (single API call) - general question that won't block the return
+  const getAIFollowUpQuestion = async (userAnswer: string) => {
+    console.log(`🤖 Getting general follow-up for return request: ${userAnswer}`);
     
-    try {
-      const res = await fetch("/api/easyOutletCustomer/respond", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userMessage: userMessage || "",
-          conversationHistory: history,
-          hatReturned: hatReturned,
-        }),
-      });
+    // For returns, use a simple general follow-up that won't block the process
+    const generalFollowUps = [
+      "I can definitely help you with that return. Was there anything wrong with the item?",
+      "Of course! I'd be happy to process that return for you. Is there a particular reason you're returning it?",
+      "No problem at all! Was there an issue with the item, or did it just not work out for you?",
+      "Absolutely, I can take care of that return. Mind if I ask what prompted the return?",
+      "Sure thing! Returns are no problem. Was everything okay with the item, or just not what you needed?"
+    ];
 
-      const data = await res.json();
-      console.log(`🤖 Cashier responded:`, data);
+    // Pick a random general follow-up that won't block the return
+    const followUpMessage = generalFollowUps[Math.floor(Math.random() * generalFollowUps.length)];
+    console.log(`🛍️ Using general follow-up: ${followUpMessage}`);
+    
+    const newMessage = {
+      role: "assistant",
+      content: followUpMessage,
+      speaker: cashier.name,
+      timestamp: Date.now(),
+    };
 
-      const reply = data?.conversation?.text || data.text || data.reply || "";
-      
-      // Store feedback if provided
-      if (data.feedback) {
-        setFeedback(data.feedback);
-        console.log("📊 Received feedback:", data.feedback);
-      }
+    setHistory(prev => [...prev, newMessage]);
+    await playVoice(followUpMessage, cashier.name);
+    
+    // Enable mic for final user response
+    setMicActive(true);
+    SpeechRecognition.startListening({ continuous: true });
+  };
 
-      // Store score data if provided
-      if (data.score) {
-        setScore(prev => prev + data.score.points);
-        console.log("📊 Received score:", data.score);
-      }
+  // Show acceptance message (no API call) - always accepts the return
+  const showAcceptanceMessage = async () => {
+    const acceptanceMessage = "That's totally fine! I'll process your return right now. Here's your receipt and refund. Thanks for shopping with us!";
+    console.log(`✅ Accepting return: ${acceptanceMessage}`);
+    
+    // Mark the return as successful
+    setHatReturned(true);
+    
+    const finalMessage = {
+      role: "assistant",
+      content: acceptanceMessage,
+      speaker: cashier.name,
+      timestamp: Date.now(),
+    };
 
-      // Update hat return status
-      if (data.hatReturned !== undefined) {
-        setHatReturned(data.hatReturned);
-      }
-
-      // Check if conversation should end
-      if (data.endConversation) {
-        endConversation();
-        return;
-      }
-
-      if (reply.trim()) {
-        const newMessage = {
-          role: "assistant",
-          content: reply,
-          speaker: cashier.name,
-          timestamp: Date.now(),
-        };
-
-        setHistory(prev => [...prev, newMessage]);
-        await playVoice(reply, cashier.name);
-        
-        // Enable mic for user response after cashier finishes speaking
-        setMicActive(true);
-        SpeechRecognition.startListening({ continuous: true });
-      }
-    } catch (error) {
-      console.error("Error getting cashier response:", error);
-    }
+    setHistory(prev => [...prev, finalMessage]);
+    await playVoice(acceptanceMessage, cashier.name);
   };
 
   // Play audio from TTS
@@ -270,21 +295,27 @@ export default function EasyOutletCustomer() {
     setPhase("completed");
     setConversationStarted(false);
     
-    // Generate final feedback if not already provided
-    if (!feedback) {
-      const finalFeedback = {
-        feedback: `Great job with your hat return! You communicated clearly with the cashier and ${hatReturned ? 'successfully completed the return' : 'handled the situation well'}. Your score is ${score} out of ${maxScore}.`,
-        score: score,
-        maxScore: maxScore
-      };
-      setFeedback(finalFeedback);
-    }
+    // Calculate score based on participation (simple scoring for easy level)
+    const participationScore = Math.min(20, Math.max(5, score + 15)); // Bonus for completing return
+    setScore(participationScore);
     
+    // Generate final feedback
+    const finalFeedback = {
+      feedback: `Excellent work with your return! You clearly explained what you needed and engaged politely with the cashier. ${hatReturned ? 'Your return was successfully processed' : 'You handled the customer service interaction professionally'}. This shows great communication skills for retail situations.`,
+      score: participationScore,
+      maxScore: 20
+    };
+    
+    setFeedback(finalFeedback);
     setShowCompletion(true);
 
     // Save the score
     try {
-      await saveScenarioScore("Easy Outlet Customer", score, (score/maxScore) * 100);
+      saveScenarioScore({
+        cardId: "Easy Outlet Customer",
+        score: participationScore,
+        maxScore: 20
+      });
     } catch (error) {
       console.error("Error saving score:", error);
     }
@@ -294,13 +325,13 @@ export default function EasyOutletCustomer() {
     if (!feedback) return;
     
     const reportData = {
-      scenarioName: "Easy Outlet Customer",
+      title: "Easy Outlet Customer Report",
+      scenario: "Customer Return Practice",
+      completionDate: new Date().toLocaleDateString(),
       score: score,
       maxScore: maxScore,
-      percentage: Math.round((score / maxScore) * 100),
       feedback: feedback.feedback,
       conversationHistory: history,
-      completedAt: new Date().toISOString(),
     };
 
     generatePDFReport(reportData);
@@ -385,12 +416,15 @@ export default function EasyOutletCustomer() {
             {/* Status indicators */}
             <div className="mb-8 flex justify-center gap-4">
               <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
+                Question: {questionNumber}/2
+              </span>
+              <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
                 Score: {score}/{maxScore}
               </span>
               <span className={`backdrop-blur-md rounded-full px-6 py-2 font-semibold ${
                 hatReturned ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'
               }`}>
-                Hat Return: {hatReturned ? '✅ Completed' : '⏳ In Progress'}
+                Return: {hatReturned ? '✅ Completed' : '⏳ In Progress'}
               </span>
             </div>
 

@@ -165,6 +165,17 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Medium"],
   },
   {
+    id: 13,
+    title: "Easy Fast Food",
+    description:
+      "Practice ordering food at a fast food restaurant. Simple conversation with ordering and follow-up questions.",
+    image: "/cards/outlet-customer.png",
+    path: "/cards/easyFastFood",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Life", "Easy"],
+  },
+  {
     id: 12,
     title: "English Guide Bot",
     description:

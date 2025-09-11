@@ -21,6 +21,34 @@ interface RequestBody {
   userMessage?: string;
   conversationHistory?: Message[];
   explanationGiven?: boolean;
+  questionNumber?: number;
+}
+
+// Simple OpenAI call function
+async function callOpenAI(messages: Message[]): Promise<string> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: messages.map(msg => ({
+        role: msg.role === "assistant" ? "assistant" : "user",
+        content: msg.content
+      })),
+      max_tokens: 200,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`OpenAI API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.choices[0]?.message?.content || "";
 }
 
 // Simple scoring function for easy parking ticket (one explanation)
@@ -72,11 +100,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body: RequestBody = await req.json();
     console.log("✅ Received body in Easy Parking Ticket /respond:", body);
 
-    const { userMessage, conversationHistory = [], explanationGiven = false } = body;
+    const { userMessage, conversationHistory = [], explanationGiven = false, questionNumber } = body;
 
     // Score user's response if they provided one
     let scoreData: ScoreData = { points: 0, maxPoints: 10, feedback: "" };
-    let endConversation = false;
     let newExplanationGiven = explanationGiven;
     
     if (userMessage && userMessage.trim()) {
@@ -91,23 +118,58 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Define simple conversation flow (one question only)
     let officerResponse = "";
     
-    if (conversationHistory.length === 0) {
-      // First interaction - officer approaches
-      officerResponse = "Excuse me, I see you've parked in a no-parking zone and I've issued you a ticket. Would you like to explain your situation?";
-    } else if (conversationHistory.length >= 2) {
-      // End conversation after user's explanation
-      if (newExplanationGiven) {
-        officerResponse = "I understand your situation with the parking shortage. While I can't remove the ticket, I appreciate you explaining the circumstances. Please be more careful in the future and consider arriving earlier to find proper parking.";
-      } else {
-        officerResponse = "I understand, but unfortunately the ticket stands. Please make sure to follow parking regulations in the future. Have a good day.";
+    if (questionNumber === 2 && userMessage) {
+      // Generate AI follow-up question with STRONG personalization emphasis
+      console.log("🤖 Generating personalized AI follow-up for parking explanation:", userMessage);
+      
+      const systemPrompt = {
+        role: "system",
+        content: `You are Officer Martinez, a professional parking enforcement officer. 
+
+CRITICAL REQUIREMENTS:
+1. You MUST acknowledge and reference specific details from what the person just said about their parking situation
+2. You MUST personalize your follow-up based on their exact explanation, excuse, or circumstances they mentioned
+3. You MUST show you were actively listening by incorporating their specific details into your response
+4. DO NOT use generic responses - tailor everything to what they specifically said about their parking
+
+Examples:
+- If they mentioned "couldn't find parking": Ask about how long they looked or what they tried
+- If they mentioned "emergency": Ask for more details about the emergency situation
+- If they mentioned "just a few minutes": Acknowledge that timeframe specifically
+- If they mentioned being "late for appointment": Reference that specific situation
+
+Your response should make them think "The officer really listened to my explanation!"
+
+Keep it professional but understanding, as a good officer would. You're still giving them the ticket, but you want to understand their situation. Limit to 1-2 sentences.`
+      };
+
+      const userPrompt = {
+        role: "user", 
+        content: `The person just explained their parking situation: "${userMessage}"
+
+Create a follow-up question that specifically references and builds upon what they shared about their parking. Show you were listening by incorporating their exact circumstances, timing, or reasons they provided.`
+      };
+
+      try {
+        officerResponse = await callOpenAI([systemPrompt, userPrompt]);
+        console.log("🎯 AI generated personalized follow-up:", officerResponse);
+      } catch (error) {
+        console.error("❌ Error calling OpenAI:", error);
+        // Fallback to a personalized random question
+        const randomFollowUps = [
+          "I see your situation. How long were you looking for parking before you decided to park here?",
+          "That sounds challenging. Have you had parking issues in this area before?",
+          "I understand your frustration. What would have been your alternative if this spot wasn't available?",
+          "Thanks for explaining that. How familiar are you with the parking rules in this area?",
+          "I hear you. What do you think would be a good solution for the parking shortage here?"
+        ];
+        officerResponse = randomFollowUps[Math.floor(Math.random() * randomFollowUps.length)];
       }
-      endConversation = true;
     } else {
-      // Fallback
-      officerResponse = "Could you please explain what happened with your parking?";
+      // This shouldn't happen in the new flow, but fallback just in case
+      officerResponse = "I understand your situation. Is there anything else about your parking that you'd like to explain?";
     }
 
     const conversationResponse: ConversationResponse = {
@@ -118,13 +180,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = {
       conversation: conversationResponse,
       score: userMessage ? scoreData : undefined,
-      feedback: userMessage && endConversation ? { 
+      feedback: userMessage ? { 
         feedback: scoreData.feedback, 
         score: scoreData.points, 
         maxScore: scoreData.maxPoints 
       } : undefined,
-      explanationGiven: newExplanationGiven,
-      endConversation: endConversation
+      explanationGiven: newExplanationGiven
     };
 
     console.log("✅ Sending response:", response);
