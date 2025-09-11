@@ -103,26 +103,58 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("📊 Basic interview score:", scoreData);
     }
 
-    // Define the interview questions
-    const questions = [
-      "Hello! Welcome to your interview. I'm Sarah Johnson, and I'll be conducting this interview today. To start, could you please tell me a little bit about yourself and your background?",
-      "That's great to hear! Now, what interests you most about this opportunity, and where do you see yourself in the future?"
-    ];
-
     let interviewerResponse = "";
     
-    if (questionNumber === 1 || conversationHistory.length === 0) {
-      // First question
-      interviewerResponse = questions[0];
-    } else if (questionNumber === 2 || conversationHistory.length === 2) {
-      // Second question with acknowledgment of first answer
-      interviewerResponse = `Thank you for sharing that with me. ${questions[1]}`;
-    } else if (conversationHistory.length >= 4) {
-      // End of interview
-      interviewerResponse = "Thank you so much for your time today. You did a wonderful job answering our questions. We'll be in touch soon!";
+    if (questionNumber === 2 && userMessage) {
+      // Generate AI follow-up question with STRONG personalization emphasis
+      console.log("🤖 Generating personalized AI follow-up for:", userMessage);
+      
+      const systemPrompt = {
+        role: "system",
+        content: `You are Sarah Johnson, a friendly HR manager conducting a basic interview. 
+
+CRITICAL REQUIREMENTS:
+1. You MUST acknowledge and reference specific details from what the candidate just shared
+2. You MUST personalize your follow-up question based on their exact words, experience, or industry they mentioned
+3. You MUST show you were actively listening by incorporating their specific details into your response
+4. DO NOT use generic questions - tailor everything to what they specifically said
+
+Examples:
+- If they mentioned "marketing": Ask about specific campaigns or marketing challenges
+- If they mentioned "5 years experience": Reference that timeframe in your question  
+- If they mentioned a specific company/role: Ask about that experience
+- If they mentioned skills: Ask to elaborate on those specific skills
+
+Your response should make the candidate think "Wow, she really listened to what I said!"
+
+Keep it conversational, professional, and encouraging. Limit to 1-2 sentences.`
+      };
+
+      const userPrompt = {
+        role: "user", 
+        content: `The candidate just introduced themselves by saying: "${userMessage}"
+
+Create a follow-up question that specifically references and builds upon what they shared. Make it clear you were listening by incorporating their exact details, experience level, industry, or specific information they provided.`
+      };
+
+      try {
+        interviewerResponse = await callOpenAI([systemPrompt, userPrompt]);
+        console.log("🎯 AI generated personalized follow-up:", interviewerResponse);
+      } catch (error) {
+        console.error("❌ Error calling OpenAI:", error);
+        // Fallback to a personalized random question
+        const randomFollowUps = [
+          `That's fascinating! Based on what you shared, what's been the most rewarding part of your journey?`,
+          `Interesting background! What drew you specifically to that field in the first place?`,
+          `Great experience! What's one thing you wish you'd known when you first started?`,
+          `That's impressive! What keeps you motivated in your current role?`,
+          `Wonderful! What would you say has been your biggest professional growth moment?`
+        ];
+        interviewerResponse = randomFollowUps[Math.floor(Math.random() * randomFollowUps.length)];
+      }
     } else {
-      // Fallback for first question
-      interviewerResponse = questions[0];
+      // This shouldn't happen in the new flow, but fallback just in case
+      interviewerResponse = "Thank you for sharing that with me. Can you tell me more about your experience?";
     }
 
     const conversationResponse: ConversationResponse = {

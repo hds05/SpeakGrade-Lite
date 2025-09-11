@@ -24,7 +24,7 @@ export default function BasicInterviewRoom() {
   const [showCompletion, setShowCompletion] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const [score, setScore] = useState(0);
-  const [maxScore, setMaxScore] = useState(20); // Max 10 points per question
+  const [maxScore, setMaxScore] = useState(20); // Max 20 points for easy interview
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -63,7 +63,7 @@ export default function BasicInterviewRoom() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000);
+    const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -83,35 +83,43 @@ export default function BasicInterviewRoom() {
 
     setHistory((prev) => [...prev, { role: "user", content: answer }]);
 
-    // Check if this was the second question
-    if (questionNumber >= 2) {
-      // End interview after 2 questions
-      await processAnswer(answer);
+    if (questionNumber === 1) {
+      // First answer - get AI follow-up question (single API call)
+      console.log("🤖 Getting AI follow-up based on user's answer...");
+      await getAIFollowUpQuestion(answer);
+      setQuestionNumber(2);
+    } else if (questionNumber === 2) {
+      // Second answer - end with thank you message (no API call)
+      console.log("🎉 Interview complete, showing thank you message...");
+      await showThankYouMessage();
       endInterview();
-    } else {
-      // Move to next question
-      await processAnswer(answer);
-      setQuestionNumber(prev => prev + 1);
-      await getInterviewerQuestion(answer);
     }
   }, [questionNumber]);
 
   // Auto-process user response when they stop speaking
   useEffect(() => {
     console.log("🔍 useEffect triggered:", { interviewStarted, micActive, listening, transcript: transcript.substring(0, 50) });
-    if (!interviewStarted || !micActive) {
-      console.log("⚠️ Not processing: interviewStarted=", interviewStarted, "micActive=", micActive);
+    if (!interviewStarted) {
+      console.log("⚠️ Not processing: interviewStarted=", interviewStarted);
       return;
     }
-    if (!listening && transcript.trim()) {
+    if (!listening && transcript.trim() && transcript.trim().length > 3) {
       console.log("🎤 Processing user answer:", transcript);
       processUserAnswer(transcript);
       resetTranscript();
     } else {
       console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
     }
-  }, [listening, transcript, interviewStarted, micActive, processUserAnswer]);
+  }, [listening, transcript, interviewStarted, processUserAnswer]);
 
+
+  // Random initial questions - no API call needed
+  const initialQuestions = [
+    "Tell me about yourself and your professional background.",
+    "How would you describe yourself as a professional?",
+    "Walk me through your career journey so far.",
+    "What brings you here today? Tell me about yourself."
+  ];
 
   const startInterview = async () => {
     // Request microphone permission first
@@ -133,37 +141,45 @@ export default function BasicInterviewRoom() {
     setFeedback(null);
     setScore(0);
     
-    // Start with first question
-    await getInterviewerQuestion();
+    // Start with random initial question (no API call)
+    const randomQuestion = initialQuestions[Math.floor(Math.random() * initialQuestions.length)];
+    console.log(`🎤 Starting with random question: ${randomQuestion}`);
+    
+    const initialMessage = {
+      role: "assistant",
+      content: randomQuestion,
+      speaker: interviewer.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory([initialMessage]);
+    await playVoice(randomQuestion, interviewer.name);
+    
+    // Enable mic for user response
+    setMicActive(true);
+    SpeechRecognition.startListening({ continuous: true });
   };
 
-  // Fetch interviewer's question
-  const getInterviewerQuestion = async (userMessage?: string) => {
-    setLoading(true);
-    console.log(`🎤 Getting question ${questionNumber}...`);
+  // Get AI follow-up question based on user's answer (single API call)
+  const getAIFollowUpQuestion = async (userAnswer: string) => {
+    console.log(`🤖 Getting AI follow-up for: ${userAnswer}`);
     
     try {
       const res = await fetch("/api/basicInterviewRoom/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userMessage: userMessage || "",
+          userMessage: userAnswer,
           conversationHistory: history,
-          questionNumber: questionNumber,
+          questionNumber: 2, // This indicates it's the follow-up question
         }),
       });
 
       const data = await res.json();
-      console.log(`🤖 Interviewer response:`, data);
+      console.log(`🤖 AI follow-up response:`, data);
 
       const reply = data?.conversation?.text || data.text || data.reply || "";
       
-      // Store feedback if provided
-      if (data.feedback) {
-        setFeedback(data.feedback);
-        console.log("📊 Received feedback:", data.feedback);
-      }
-
       // Store score data if provided
       if (data.score) {
         setScore(prev => prev + data.score.points);
@@ -171,25 +187,39 @@ export default function BasicInterviewRoom() {
       }
 
       if (reply.trim()) {
-        const newMessage = {
+        const followUpMessage = {
           role: "assistant",
           content: reply,
           speaker: interviewer.name,
           timestamp: Date.now(),
         };
 
-        setHistory(prev => [...prev, newMessage]);
+        setHistory(prev => [...prev, followUpMessage]);
         await playVoice(reply, interviewer.name);
         
-        // Enable mic for user response after interviewer finishes speaking
+        // Enable mic for final user response
         setMicActive(true);
         SpeechRecognition.startListening({ continuous: true });
       }
     } catch (error) {
-      console.error("Error getting interviewer question:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error getting AI follow-up question:", error);
     }
+  };
+
+  // Show thank you message (no API call)
+  const showThankYouMessage = async () => {
+    const thankYouMessage = "Thank you for interviewing with us today. We'll be in touch soon!";
+    console.log(`🎉 Ending with: ${thankYouMessage}`);
+    
+    const finalMessage = {
+      role: "assistant",
+      content: thankYouMessage,
+      speaker: interviewer.name,
+      timestamp: Date.now(),
+    };
+
+    setHistory(prev => [...prev, finalMessage]);
+    await playVoice(thankYouMessage, interviewer.name);
   };
 
   // Play audio from TTS
@@ -243,20 +273,42 @@ export default function BasicInterviewRoom() {
   };
 
 
-  const processAnswer = async (answer: string) => {
-    // Simple scoring for basic interview
-    const score = Math.min(10, Math.max(1, Math.floor(answer.length / 10))); // Basic scoring based on response length
-    setScore(prev => prev + score);
+
+  // Handle mute/unmute
+  const handleMute = () => {
+    if (micActive) {
+      SpeechRecognition.stopListening();
+      setMicActive(false);
+    } else {
+      SpeechRecognition.startListening({ 
+        continuous: true,
+        interimResults: false,
+        language: 'en-US'
+      });
+      setMicActive(true);
+    }
+  };
+
+  // Stop interview
+  const handleStopInterview = () => {
+    SpeechRecognition.stopListening();
+    setInterviewStarted(false);
+    setMicActive(false);
+    endInterview();
   };
 
   const endInterview = async () => {
     setPhase("completed");
     
+    // Calculate score based on participation (simple scoring for easy level)
+    const participationScore = Math.min(20, Math.max(5, score + 10)); // Bonus for completing interview
+    setScore(participationScore);
+    
     // Generate final feedback
     const finalFeedback = {
-      feedback: `Great job completing your first interview! You answered both questions and showed good communication skills. Your total score is ${score} out of ${maxScore}.`,
-      score: score,
-      maxScore: maxScore
+      feedback: `Excellent work completing your first interview! You demonstrated good communication skills by introducing yourself and engaging with follow-up questions. This shows great preparation and confidence for future interviews.`,
+      score: participationScore,
+      maxScore: 20
     };
     
     setFeedback(finalFeedback);
@@ -264,7 +316,11 @@ export default function BasicInterviewRoom() {
 
     // Save the score
     try {
-      await saveScenarioScore("Basic Interview Room", score, (score/maxScore) * 100);
+      saveScenarioScore({
+        cardId: "Basic Interview Room",
+        score: participationScore,
+        maxScore: 20
+      });
     } catch (error) {
       console.error("Error saving score:", error);
     }
@@ -274,13 +330,13 @@ export default function BasicInterviewRoom() {
     if (!feedback) return;
     
     const reportData = {
-      scenarioName: "Basic Interview Room",
+      title: "Basic Interview Room Report",
+      scenario: "Easy Interview Practice",
+      completionDate: new Date().toLocaleDateString(),
       score: score,
       maxScore: maxScore,
-      percentage: Math.round((score / maxScore) * 100),
       feedback: feedback.feedback,
       conversationHistory: history,
-      completedAt: new Date().toISOString(),
     };
 
     generatePDFReport(reportData);
@@ -288,7 +344,7 @@ export default function BasicInterviewRoom() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black/80 to-gray-400 flex items-center justify-center">
+      <div className="bg-white">
         <Loader />
       </div>
     );
@@ -419,6 +475,22 @@ export default function BasicInterviewRoom() {
                 You
               </span>
               
+              {/* Microphone Controls */}
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={handleMute}
+                  className="px-4 py-2 rounded-lg bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors"
+                >
+                  {micActive ? "🔇 Mute" : "🎤 Unmute"}
+                </button>
+                <button
+                  onClick={handleStopInterview}
+                  className="px-6 py-2 rounded-lg bg-rose-600 text-white font-medium hover:bg-rose-700 transition-colors"
+                >
+                  🛑 End Interview
+                </button>
+              </div>
+
               {/* Microphone Status */}
               <div className="mt-2 text-center">
                 <div className={`text-xs px-2 py-1 rounded-full ${
