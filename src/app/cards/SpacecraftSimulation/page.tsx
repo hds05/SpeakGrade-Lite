@@ -451,7 +451,7 @@ export default function SpacecraftSimulation() {
             </p>
         </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-white">
             <div className="p-6">
               <h3 className="text-2xl font-bold text-blue-400 mb-2">Decisions Made</h3>
               <p className="text-4xl font-bold">{decisionsMade}</p>
