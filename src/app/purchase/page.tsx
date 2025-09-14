@@ -19,7 +19,7 @@ export default function PurchasePage(): React.JSX.Element {
     "Access to all 12 communication scenarios",
     "AI-powered conversation practice",
     "Real-time feedback and scoring",
-    "Progress tracking and analytics",
+    // "Progress tracking and analytics",
     "Mobile-responsive interface",
     "Lifetime access",
   ];

@@ -434,13 +434,13 @@ export default function SpacecraftSimulation() {
         <div className="absolute inset-0 bg-black/80 md:bg-black/68 lg:bg-black/68 xl:bg-black/68 z-0"></div>
         
         {/* Confetti */}
-        <Confetti className="w-full h-full z-10" />
         
         {/* Content */}
         <div className="relative z-20 max-w-4xl w-full px-4">
           <div className="mb-8">
             <h1 className="text-4xl md:text-6xl font-bold mb-4 text-green-400">
-              {missionStatus === "SUCCESS" ? "🎉 Mission Accomplished!" : 
+        {missionStatus === "SUCCESS" && <Confetti className="w-full h-full z-10" />}
+              { 
                missionStatus === "FAIL" ? "💥 Mission Failed" : 
                missionStatus === "TIME_UP" ? "⏰ Time's Up!" : "🏁 Mission Complete"}
           </h1>
@@ -451,7 +451,7 @@ export default function SpacecraftSimulation() {
             </p>
         </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-white">
             <div className="p-6">
               <h3 className="text-2xl font-bold text-blue-400 mb-2">Decisions Made</h3>
               <p className="text-4xl font-bold">{decisionsMade}</p>
@@ -544,13 +544,13 @@ export default function SpacecraftSimulation() {
               </p>
             </div>
 
-            <div className="p-8 mb-8">
+            <div className="p-8 mb-8 bg-black/70 rounded-full">
               <h2 className="text-2xl font-bold mb-4">Mission Briefing</h2>
               <p className="text-lg text-gray-300 mb-4">
                 Your spaceship has been damaged by an asteroid collision. JARVIS, your AI assistant, 
                 will guide you through critical decisions to ensure crew survival.
               </p>
-              <ul className="text-left text-gray-300 space-y-2">
+              <ul className="text-center text-gray-300 space-y-2">
                 <li>• Make logical, safe decisions in emergency situations</li>
                 <li>• Use your space knowledge to choose destinations</li>
                 <li>• Work with JARVIS to navigate through space hazards</li>
