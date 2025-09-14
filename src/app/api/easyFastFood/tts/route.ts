@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { trackElevenLabsUsage, canMakeAPICall } from "@/lib/apiTracking";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    // Check authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const { text, voice = "onyx" } = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    }
+
+    // Check if user has enough credits before making TTS call
+    const canProceed = await canMakeAPICall('elevenlabs', text.length, userId);
+    
+    if (!canProceed) {
+      return NextResponse.json({ 
+        error: "Insufficient credits", 
+        message: "You don't have enough voice generation credits. Please purchase more credits." 
+      }, { status: 402 });
     }
 
     // ElevenLabs API call
@@ -33,6 +51,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const audioBuffer = await response.arrayBuffer();
     
+    // Track ElevenLabs usage and deduct credits
+    try {
+      const usageTracking = await trackElevenLabsUsage(text, userId);
+      if (usageTracking.success) {
+        console.log(`✅ TTS Credits tracked: ${usageTracking.creditsUsed} used, ${usageTracking.remainingCredits} remaining`);
+      }
+    } catch (trackingError) {
+      console.error("Error tracking TTS usage:", trackingError);
+      // Continue execution - don't fail the request for tracking errors
+    }
+    
     return new NextResponse(audioBuffer, {
       headers: {
         "Content-Type": "audio/mpeg",
@@ -45,3 +74,4 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

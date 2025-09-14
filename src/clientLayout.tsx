@@ -5,10 +5,11 @@ import Image from "next/image";
 import Loader from "./app/components/loader/page";
 import Header from "./app/components/header/page";
 import ClickWaveEffect from "./app/components/clickWaveEffect/ClickWaveEffect";
-import OptimizedClouds from "./app/components/optimizedClouds/page";
+import CreditsDisplay from "./app/components/creditsDisplay/page";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from 'sweetalert2';
+import { useUser } from '@clerk/nextjs';
 
 // LOCKED LEVELS FUNCTIONALITY - CURRENTLY DISABLED
 // Uncomment the line below to re-enable locked levels functionality
@@ -124,6 +125,27 @@ const componentsList: ComponentItem[] = [
   },
   {
     id: 8,
+    title: "Easy Fast Food Order",
+    description: "Simple fast food ordering practice. Order your favorite food and complete the order!",
+    image: "/cards/fast-food.png",
+    path: "/cards/easyFastFood",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Life", "Easy"],
+  },
+  {
+    id: 9,
+    title: "Order Mix-Up",
+    description:
+      "Handle a drive-thru order with multiple mistakes at Burger Express. Fix your incorrect order professionally.",
+    image: "/cards/fast-food.png",
+    path: "/cards/orderMixUp",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Life", "Medium"],
+  },
+  {
+    id: 10,
     title: "Outlet Customer Service",
     description:
       "You're a customer at Fashion Outlet with multiple issues that need to be resolved at checkout.",
@@ -134,7 +156,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Medium"],
   },
   {
-    id: 9,
+    id: 11,
     title: "Emergency 911 Dispatcher",
     description: "You have called 911. Tell them your Emergency.",
     image: "/cards/emergency-911.png",
@@ -144,7 +166,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Life", "Medium"],
   },
   {
-    id: 10,
+    id: 12,
     title: "Spacecraft Simulation",
     description:
       "Master advanced spacecraft controls and navigate complex deep space missions.",
@@ -155,29 +177,7 @@ const componentsList: ComponentItem[] = [
     tags: ["Fantasy", "Hard"],
   },
   {
-    id: 11,
-    title: "Order Mix-Up",
-    description:
-      "Handle a drive-thru order with multiple mistakes at Burger Express. Fix your incorrect order professionally.",
-    image: "/cards/outlet-customer.png",
-    path: "/cards/orderMixUp",
-    isLocked: false,
-    requiredScore: 0,
-    tags: ["Life", "Medium"],
-  },
-  {
     id: 13,
-    title: "Easy Fast Food",
-    description:
-      "Practice ordering food at a fast food restaurant. Simple conversation with ordering and follow-up questions.",
-    image: "/cards/outlet-customer.png",
-    path: "/cards/easyFastFood",
-    isLocked: false,
-    requiredScore: 0,
-    tags: ["Life", "Easy"],
-  },
-  {
-    id: 12,
     title: "English Guide Bot",
     description:
       "AI-powered English fluency assessment with real-time feedback and vocabulary suggestions.",
@@ -623,8 +623,142 @@ export default function ClientLayout({
       duration={700}
     >
     <div className={`fixed inset-0 w-full h-full overflow-hidden ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-stone-200' : 'bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 text-gray-800'}`}>
-      {/* Optimized Clouds Background */}
-      <OptimizedClouds isDarkMode={isDarkMode} />
+      {/* Floating Clouds Background */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div>
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={400}
+            height={160}
+            className="absolute top-9 left-2 w-32 h-16 sm:w-48 sm:h-24 md:w-64 md:h-32 lg:w-96 lg:h-32 xl:w-[400px] xl:h-40 animate-floatX"
+            priority
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={320}
+            height={128}
+            className="absolute top-20 right-2 w-24 h-12 sm:w-32 sm:h-16 md:w-48 md:h-24 lg:w-64 lg:h-24 xl:w-80 xl:h-32 opacity-100 animate-floatX"
+            priority
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={224}
+            height={96}
+            className="absolute top-40 left-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-48 lg:h-20 xl:w-56 xl:h-24 opacity-85 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={288}
+            height={112}
+            className="absolute top-60 right-1/9 w-28 h-14 sm:w-36 sm:h-18 md:w-48 md:h-24 lg:w-56 lg:h-28 xl:w-72 xl:h-28 opacity-80 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={224}
+            height={80}
+            className="absolute bottom-18 right-1/8 w-20 h-10 sm:w-28 sm:h-14 md:w-40 md:h-20 lg:w-48 lg:h-20 xl:w-56 xl:h-20 opacity-75 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={500}
+            height={160}
+            className="absolute bottom-16 left-1/6 w-40 h-20 sm:w-64 sm:h-32 md:w-96 md:h-40 lg:w-[400px] lg:h-40 xl:w-[500px] xl:h-40 opacity-98 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={384}
+            height={128}
+            className="absolute top-32 right-1/4 w-32 h-16 sm:w-48 sm:h-24 md:w-64 md:h-32 lg:w-80 lg:h-32 xl:w-96 xl:h-32 opacity-85 animate-drift"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={128}
+            height={64}
+            className="absolute top-80 left-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-70 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={112}
+            height={56}
+            className="absolute top-72 right-2 w-12 h-6 sm:w-16 sm:h-8 md:w-20 md:h-10 lg:w-24 lg:h-12 xl:w-28 xl:h-14 opacity-65 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={128}
+            height={64}
+            className="absolute top-64 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-60 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={112}
+            height={56}
+            className="absolute top-48 left-2 w-12 h-6 sm:w-16 sm:h-8 md:w-20 md:h-10 lg:w-24 lg:h-12 xl:w-28 xl:h-14 opacity-70 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={120}
+            height={60}
+            className="absolute top-56 right-2 w-14 h-7 sm:w-18 sm:h-9 md:w-22 md:h-11 lg:w-26 lg:h-13 xl:w-30 xl:h-15 opacity-75 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={144}
+            height={72}
+            className="absolute top-24 left-1/2 w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 lg:w-32 lg:h-16 xl:w-36 xl:h-18 opacity-90 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={128}
+            height={64}
+            className="absolute top-36 right-2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-80 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={136}
+            height={68}
+            className="absolute top-44 left-2 w-18 h-9 sm:w-22 sm:h-11 md:w-26 md:h-13 lg:w-30 lg:h-15 xl:w-34 xl:h-17 opacity-85 animate-floatX"
+          />
+
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={224}
+            height={112}
+            className="absolute bottom-20 left-3 w-24 h-12 sm:w-32 sm:h-16 md:w-40 md:h-20 lg:w-48 lg:h-24 xl:w-56 xl:h-28 opacity-90 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={208}
+            height={104}
+            className="absolute bottom-32 right-1/4 w-20 h-10 sm:w-28 sm:h-14 md:w-36 md:h-18 lg:w-44 lg:h-22 xl:w-52 xl:h-26 opacity-85 animate-floatX"
+          />
+          <Image
+            src="/backgrounds/cartooncloud.webp"
+            alt="Floating cloud"
+            width={128}
+            height={64}
+            className="absolute bottom-16 left-1/2 w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-28 lg:h-14 xl:w-32 xl:h-16 opacity-80 animate-floatX"
+          />
+        </div>
+        {/* Gentle mist effect */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/15 to-transparent"></div>
+      </div>
 
       {/* Foreground */}
       <div className="relative z-10 w-full h-full overflow-y-auto">
@@ -740,6 +874,9 @@ export default function ClientLayout({
                 {filteredComponents.length} scenario{filteredComponents.length !== 1 ? 's' : ''}
               </div>
             </div>
+            
+            {/* Credits Display for Authenticated Users */}
+            <CreditsDisplay />
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full mx-auto">
               {filteredComponents
@@ -1019,7 +1156,7 @@ export default function ClientLayout({
                               ? 'bg-gradient-to-b from-transparent to-purple-50/30'
                               : ''
                         }`}>
-                          <h3 className={`text-lg sm:text-md font-bold tracking-tight mb-2 relative ${
+                          <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-2 relative ${
                             item.isLiveConversation && !isDarkMode 
                               ? 'text-white' 
                               : isDarkMode ? 'text-stone-200' : 'text-gray-900'

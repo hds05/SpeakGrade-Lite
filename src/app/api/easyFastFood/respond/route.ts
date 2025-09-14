@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { trackOpenAIUsage, canMakeAPICall } from "@/lib/apiTracking";
 
 interface Message {
   role: string;
@@ -95,10 +97,27 @@ async function scoreUserResponse(userResponse: string): Promise<ScoreData> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    // Check authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const body: RequestBody = await req.json();
     console.log("✅ Received body in Easy Fast Food /respond:", body);
 
     const { userMessage, conversationHistory = [], questionNumber } = body;
+
+    // Check if user has enough credits before making API call
+    const estimatedTokens = userMessage ? userMessage.length / 4 : 200; // Rough estimate
+    const canProceed = await canMakeAPICall('openai', estimatedTokens, userId);
+    
+    if (!canProceed) {
+      return NextResponse.json({ 
+        error: "Insufficient credits", 
+        message: "You don't have enough OpenAI credits to continue. Please purchase more credits." 
+      }, { status: 402 });
+    }
 
     // Score user's response if they provided one
     let scoreData: ScoreData = { points: 0, maxPoints: 10, feedback: "" };
@@ -177,6 +196,17 @@ Create a follow-up question that specifically references and builds upon what th
       } : undefined
     };
 
+    // Track OpenAI usage and deduct credits
+    try {
+      const usageTracking = await trackOpenAIUsage(workerResponse, 'gpt-4o-mini', userId);
+      if (usageTracking.success) {
+        console.log(`✅ Credits tracked: ${usageTracking.creditsUsed} used, ${usageTracking.remainingCredits} remaining`);
+      }
+    } catch (trackingError) {
+      console.error("Error tracking API usage:", trackingError);
+      // Continue execution - don't fail the request for tracking errors
+    }
+
     console.log("✅ Sending response:", response);
     return NextResponse.json(response);
 
@@ -188,3 +218,4 @@ Create a follow-up question that specifically references and builds upon what th
     );
   }
 }
+

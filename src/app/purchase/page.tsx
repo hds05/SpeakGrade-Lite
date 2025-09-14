@@ -32,7 +32,9 @@ export default function PurchasePage(): React.JSX.Element {
       // In a real implementation, you would integrate with PayPal here
       // For now, we'll simulate a successful purchase
       localStorage.setItem('speakgrade_purchase_status', 'purchased');
-      window.location.href = '/dashboard';
+      
+      // Redirect to sign-up with purchase context
+      window.location.href = '/sign-up?purchased=true';
     }, 2000);
   };
 

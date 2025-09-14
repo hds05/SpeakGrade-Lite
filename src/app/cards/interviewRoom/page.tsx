@@ -66,11 +66,17 @@ export default function InterviewRoom() {
   }, [interviewStarted]);
 
   useEffect(() => {
-    if (!interviewStarted || !micActive) return; // Only process when interview is active and mic is on
-    if (!listening && transcript.trim()) {
+    console.log("🔍 useEffect triggered:", { interviewStarted, micActive, listening, transcript: transcript.substring(0, 50) });
+    if (!interviewStarted || !micActive) {
+      console.log("⚠️ Not processing: interviewStarted=", interviewStarted, "micActive=", micActive);
+      return;
+    }
+    if (!listening && transcript.trim() && transcript.trim().length > 3) {
       console.log("🎤 Processing user answer:", transcript);
       processUserAnswer(transcript);
       resetTranscript();
+    } else {
+      console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
     }
   }, [listening, transcript, interviewStarted, micActive]);
 
@@ -255,15 +261,19 @@ export default function InterviewRoom() {
           { role: "assistant", content: reply, speaker: actualSpeaker },
         ]);
         await playVoice(reply, actualSpeaker);
+        
+        // Enable mic for user's answer AFTER voice playback finishes
+        console.log("🎤 Re-enabling microphone for user response...");
         setMicActive(true);
         SpeechRecognition.startListening({ continuous: true });
       } else {
         console.warn("⚠️ No valid text to speak.");
+        
+        // Even if no voice, still enable mic for user
+        console.log("🎤 Enabling microphone for user response (no voice to play)...");
+        setMicActive(true);
+        SpeechRecognition.startListening({ continuous: true });
       }
-
-      // Enable mic for user's answer
-      setMicActive(true);
-      // SpeechRecognition.startListening({ continuous: true });
     } catch (err) {
       console.error(err);
     } finally {
@@ -495,28 +505,30 @@ const playVoice = async (text: string, speaker: string) => {
                     🎉 Conversation Completed!
                   </h2>
                   
-                  {/* Feedback Display */}
+                  {/* Score Grid - Standardized design */}
                   {feedback && (
-                    <div className="mb-6 p-6">
-                      <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-green-400">
-                            {score}/{maxScore}
-                          </div>
-                          <div className="text-sm text-gray-300">Total Score</div>
+                    <>
+                      <div className="grid md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-green-500/20 backdrop-blur-md rounded-xl p-6 border border-green-400/20">
+                          <h3 className="text-2xl font-bold text-green-300 mb-2">Score</h3>
+                          <p className="text-3xl font-bold text-white">{score}/{maxScore}</p>
                         </div>
-                        <div className="text-center">
-                          <div className="text-4xl font-bold text-blue-400">
-                            {maxScore > 0 ? Math.round((score / maxScore) * 100) : 0}%
-                          </div>
-                          <div className="text-sm text-gray-300">Accuracy</div>
+                        <div className="bg-blue-500/20 backdrop-blur-md rounded-xl p-6 border border-blue-400/20">
+                          <h3 className="text-2xl font-bold text-blue-300 mb-2">Percentage</h3>
+                          <p className="text-3xl font-bold text-white">{maxScore > 0 ? Math.round((score / maxScore) * 100) : 0}%</p>
+                        </div>
+                        <div className="bg-purple-500/20 backdrop-blur-md rounded-xl p-6 border border-purple-400/20">
+                          <h3 className="text-2xl font-bold text-purple-300 mb-2">Interview</h3>
+                          <p className="text-3xl font-bold text-white">✅</p>
                         </div>
                       </div>
-                      <div className="text-center">
+
+                      {/* Feedback Display */}
+                      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-8 border border-white/20">
+                        <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
                         <p className="text-white text-sm leading-relaxed">{feedback.feedback}</p>
                       </div>
-                    </div>
+                    </>
                   )}
                   <p className="text-sm sm:text-lg text-white mb-6">
                     Great job! You've finished Level 3. Please sign up to know
@@ -683,6 +695,14 @@ const playVoice = async (text: string, speaker: string) => {
                           <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full mb-2">
                             Score: {score}/{maxScore} points
                           </div>
+                          <div className="text-white text-xs bg-purple-600/70 px-2 py-1 rounded-full mb-2">
+                            Mic: {micActive ? 'Active' : 'Muted'} | Listening: {listening ? 'Yes' : 'No'}
+                          </div>
+                          {transcript && (
+                            <div className="text-white text-xs bg-blue-600/70 px-2 py-1 rounded-full mb-2">
+                              "{transcript.substring(0, 50)}{transcript.length > 50 ? '...' : ''}"
+                            </div>
+                          )}
                           {feedback && (
                             <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
                               Feedback: {feedback.score}/{feedback.maxScore}

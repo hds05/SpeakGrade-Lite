@@ -61,6 +61,16 @@ export default function OrderMixUp() {
 
       setRecognition(recognition);
     }
+
+    // Cleanup on component unmount
+    return () => {
+      if (recognition) {
+        recognition.stop();
+        if (recognition.abort) {
+          recognition.abort();
+        }
+      }
+    };
   }, []);
 
   const startListening = () => {
@@ -75,6 +85,20 @@ export default function OrderMixUp() {
       recognition.stop();
       setIsListening(false);
     }
+  };
+
+  // Complete audio and microphone shutdown
+  const completeAudioShutdown = () => {
+    // Stop speech recognition completely
+    if (recognition) {
+      recognition.stop();
+      if (recognition.abort) {
+        recognition.abort(); // Force kill recognition session
+      }
+    }
+    setIsListening(false);
+    setMikeSpeaking(false);
+    setTranscript("");
   };
 
   const handleUserInput = async (userMessage: string) => {
@@ -116,6 +140,7 @@ export default function OrderMixUp() {
       // Check if conversation should end
       if (data.conversationComplete || data.issuesResolved?.length >= 4 || questionCount >= 9) {
         setTimeout(() => {
+          completeAudioShutdown();
           setShowCompletion(true);
           saveScore();
         }, 2000);
@@ -199,37 +224,53 @@ export default function OrderMixUp() {
 
   if (showCompletion) {
     return (
-      <div className="relative w-full min-h-screen bg-gradient-to-br from-orange-100 to-red-100 text-gray-800">
-        <div className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 animate__animated animate__fadeInUp">
-          <Confetti className="w-full h-full z-10" />
+      <div className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
+           style={{
+             backgroundImage: "url('/backgrounds/fastFoodBg.png')",
+           }}>
+        {/* Dark overlay for better readability */}
+        <div className="absolute inset-0 bg-black/70 z-0"></div>
+        
+        {/* Confetti */}
+        <Confetti className="w-full h-full z-10" />
+        
+        {/* Content */}
+        <div className="relative z-20 max-w-4xl w-full px-4">
+          <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-6">
+            🎉 Order Issue Resolved!
+          </h2>
           
-          <div className="relative z-20 max-w-2xl w-full px-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600 mb-4">
-              🎉 Order Issue Resolved!
-            </h2>
-            <p className="text-base sm:text-lg md:text-xl text-gray-700 mb-6">
-              Great job handling the drive-thru mix-up professionally!
-            </p>
-            
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-6 shadow-lg">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">Final Results</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{currentScore}/100</div>
-                  <div className="text-gray-600">Points Earned</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{issuesResolved.length}/4</div>
-                  <div className="text-gray-600">Issues Resolved</div>
-                </div>
-              </div>
+          {/* Score Grid - Standardized design */}
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-green-500/20 backdrop-blur-md rounded-xl p-6 border border-green-400/20">
+              <h3 className="text-2xl font-bold text-green-300 mb-2">Score</h3>
+              <p className="text-3xl font-bold text-white">{currentScore}/100</p>
             </div>
+            <div className="bg-blue-500/20 backdrop-blur-md rounded-xl p-6 border border-blue-400/20">
+              <h3 className="text-2xl font-bold text-blue-300 mb-2">Percentage</h3>
+              <p className="text-3xl font-bold text-white">{Math.round((currentScore/100) * 100)}%</p>
+            </div>
+            <div className="bg-purple-500/20 backdrop-blur-md rounded-xl p-6 border border-purple-400/20">
+              <h3 className="text-2xl font-bold text-purple-300 mb-2">Issues Fixed</h3>
+              <p className="text-3xl font-bold text-white">{issuesResolved.length}/4</p>
+            </div>
+          </div>
 
+          {/* Feedback Display */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-8 border border-white/20">
+            <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
+            <p className="text-white text-sm leading-relaxed">
+              Great job handling the drive-thru mix-up professionally! You successfully addressed {issuesResolved.length} out of 4 order issues and demonstrated excellent customer service communication skills in a challenging situation.
+            </p>
+          </div>
+
+          {/* Action Button */}
+          <div className="flex justify-center">
             <button
               onClick={() => router.push("/")}
-              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:scale-105 transition-all duration-300 shadow-lg"
+              className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg border border-green-400/30"
             >
-              Return to Dashboard
+              🏠 Back to Dashboard
             </button>
           </div>
         </div>
@@ -244,8 +285,8 @@ export default function OrderMixUp() {
         <div 
           className="w-full h-full bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: "url('/backgrounds/outletBg.png')",
-            filter: 'blur(3px) brightness(1.1) hue-rotate(15deg)',
+            backgroundImage: "url('/backgrounds/fastFoodBg.png')",
+            filter: 'blur(3px) brightness(1.1)',
             transform: 'scale(1.1)'
           }}
         ></div>
@@ -301,7 +342,7 @@ export default function OrderMixUp() {
               mikeSpeaking ? 'border-orange-400 scale-110' : 'border-blue-400'
             }`}>
               <Image
-                src="/avatars/outlet-young-male.png"
+                src="/avatars/fastFood-young-man.png"
                 alt="Mike - Cashier"
                 width={160}
                 height={160}
