@@ -188,6 +188,17 @@ const componentsList: ComponentItem[] = [
     tags: ["Test", "Live"],
     isLiveConversation: true, // Mark as live conversation level
   },
+  {
+    id: 14,
+    title: "🌲 Tree Explorer Game",
+    description:
+      "Explore a vast world filled with mystical trees! Navigate through an enormous map and discover hidden secrets.",
+    image: "/game/game-bg.png",
+    path: "/cards/conversationCustomGame",
+    isLocked: false,
+    requiredScore: 0,
+    tags: ["Game", "Hidden"],
+  },
 ];
 
 interface ClientLayoutProps {
@@ -847,6 +858,7 @@ export default function ClientLayout({
                   <option value="Life">Life</option>
                   <option value="Fantasy">Fantasy</option>
                   <option value="Test">Test</option>
+                  <option value="Game">Game</option>
                 </select>
               </div>
               
