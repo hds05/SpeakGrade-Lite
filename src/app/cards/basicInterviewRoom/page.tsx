@@ -11,6 +11,10 @@ import SoundWave from "@/app/components/soundWave/page";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { scoreInterviewResponse } from "@/app/utils/scoringUtils";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 export default function BasicInterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "interview" | "completed">("intro");
@@ -28,8 +32,15 @@ export default function BasicInterviewRoom() {
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const { transcript, listening, resetTranscript } = useSpeechRecognition();
+  const {
+    transcript,
+    interimTranscript,
+    finalTranscript,
+    listening,
+    resetTranscript,
+  } = useSpeechRecognition();
   const audioUnlockedRef = useRef(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Simplified interviewer data - just one interviewer for simplicity
   const interviewer = {
@@ -39,12 +50,9 @@ export default function BasicInterviewRoom() {
     voice: "nova"
   };
 
-  // Unlock audio context on first user interaction
   const unlockAudio = () => {
     if (audioUnlockedRef.current) return;
-    const dummy = new Audio();
-    dummy.src = "";
-    dummy.play().catch(() => {});
+    unlockWebAudioOnUserGesture();
     audioUnlockedRef.current = true;
     console.log("🔓 Audio context unlocked");
   };
@@ -112,6 +120,12 @@ export default function BasicInterviewRoom() {
     }
   }, [listening, transcript, interviewStarted, processUserAnswer]);
 
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [history, interimTranscript, finalTranscript]);
 
   // Random initial questions - no API call needed
   const initialQuestions = [
@@ -122,14 +136,12 @@ export default function BasicInterviewRoom() {
   ];
 
   const startInterview = async () => {
-    // Request microphone permission first
+    unlockAudio();
     const micPermission = await requestMicrophonePermission();
     if (!micPermission) {
       console.log("❌ Cannot start interview without microphone permission");
       return;
     }
-
-    unlockAudio();
     setShowIntroPopup(false);
     setInterviewStarted(true);
     setPhase("interview");
@@ -239,33 +251,24 @@ export default function BasicInterviewRoom() {
         body: JSON.stringify({ text, voice: "nova" }),
       });
 
-      if (res.ok) {
-        const audioBlob = await res.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-
-        return new Promise<void>((resolve, reject) => {
-          audio.onended = () => {
-            console.log(`✅ Audio finished for ${speaker}`);
-            setSpeakingIndex(null);
-            URL.revokeObjectURL(audioUrl);
-            currentAudioRef.current = null;
-            resolve();
-          };
-
-          audio.onerror = (e) => {
-            console.error(`❌ Audio error for ${speaker}:`, e);
-            setSpeakingIndex(null);
-            if (currentAudioRef.current === audio) reject(e);
-          };
-
-          audio.play().catch((e) => {
-            console.error(`❌ Audio play failed for ${speaker}:`, e);
-            if (currentAudioRef.current === audio) reject(e);
-          });
-        });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`❌ TTS API error:`, res.status, errText);
+        setSpeakingIndex(null);
+        return;
       }
+
+      const audioBlob = await res.blob();
+      if (audioBlob.size < 100) {
+        console.error("❌ TTS blob inválido; revisa OPENAI_API_KEY en .env.local");
+        setSpeakingIndex(null);
+        return;
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+      console.log(`✅ Audio finished for ${speaker}`);
+      setSpeakingIndex(null);
     } catch (error) {
       console.error(`❌ playVoice error for ${speaker}:`, error);
       setSpeakingIndex(null);
@@ -393,7 +396,7 @@ export default function BasicInterviewRoom() {
             </h2>
             <p className="text-gray-600 mb-6 text-lg leading-relaxed">
               This is a simplified interview experience perfect for beginners. 
-              You'll answer just <strong>2 general questions</strong> from our friendly HR manager. 
+              You will answer just <strong>2 general questions</strong> from our friendly HR manager. 
               Take your time and speak clearly when responding.
             </p>
             <div className="bg-blue-50 p-4 rounded-xl mb-6">
@@ -415,106 +418,107 @@ export default function BasicInterviewRoom() {
         </div>
       )}
 
-        {/* Main Interview Interface - Using Intermediate Style */}
         {interviewStarted && !showCompletion && (
-          <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
-            {/* Progress indicator */}
-            <div className="absolute top-4 left-4 z-[200]">
-              <div className="bg-black/70 backdrop-blur-sm rounded-full px-6 py-3 border-2 border-white/30">
-                <div className="text-white text-center">
-                  <div className="text-sm text-gray-300 mb-1">📝 Progress</div>
-                  <div className="text-lg font-bold text-green-400">
+          <ScenarioChatLayout
+            chatScrollRef={chatScrollRef}
+            finalTranscript={finalTranscript}
+            interimTranscript={interimTranscript}
+            listening={listening}
+            micActive={micActive}
+            headerSlot={
+              <div className="mx-auto flex w-full max-w-2xl shrink-0 flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-md">
                     Question {questionNumber} of 2
+                  </span>
+                  <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-green-300 backdrop-blur-md">
+                    Score: {score}/{maxScore}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                    <Image
+                      src={interviewer.avatar}
+                      alt={interviewer.name}
+                      width={64}
+                      height={64}
+                      className={`h-full w-full rounded-full object-cover ring-2 ${
+                        speakingIndex === 0 ? "animate-pulse ring-green-400" : "ring-white/40"
+                      } transition-all`}
+                    />
+                    {speakingIndex === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <SoundWave speaking={true} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-base font-bold text-white sm:text-lg">{interviewer.name}</h3>
+                    <p className="text-xs text-blue-200 sm:text-sm">{interviewer.title}</p>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Score Display */}
-            <div className="absolute top-4 right-4 z-[200]">
-              <div className="bg-black/70 backdrop-blur-sm rounded-full px-6 py-3 border-2 border-white/30">
-                <div className="text-white text-center">
-                  <div className="text-sm text-gray-300 mb-1">🎯 Score</div>
-                  <div className="text-lg font-bold text-green-400">
-                    {score}/{maxScore}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Interviewer */}
-            <div className="flex flex-col items-center z-[100]">
-              <div className="w-32 h-32 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                <Image
-                  src={interviewer.avatar}
-                  alt={interviewer.name}
-                  width={144}
-                  height={144}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-              <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
-                {interviewer.name}
-              </span>
-              <SoundWave speaking={speakingIndex === 0} />
-            </div>
-
-            {/* You */}
-            <div className="flex flex-col items-center z-[100] mt-8">
-              {micActive && <SoundWave speaking={listening} />}
-              <div className="w-28 h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                <Image
-                  src="/avatars/user-avatar.png"
-                  alt="You"
-                  width={112}
-                  height={112}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-              <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
-                You
-              </span>
-              
-              {/* Microphone Controls */}
-              <div className="flex gap-3 mt-4">
+            }
+            hintText={
+              micActive
+                ? "Speak naturally — transcription updates above as you talk."
+                : "Unmute the microphone to respond."
+            }
+            audioHelpSlot={<AudioTestStrip />}
+            controlsSlot={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {micActive && <SoundWave speaking={listening} />}
                 <button
+                  type="button"
                   onClick={handleMute}
-                  className="px-4 py-2 rounded-lg bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors"
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                 >
-                  {micActive ? "🔇 Mute" : "🎤 Unmute"}
+                  {micActive ? "Mute" : "Unmute"}
                 </button>
                 <button
+                  type="button"
                   onClick={handleStopInterview}
-                  className="px-6 py-2 rounded-lg bg-rose-600 text-white font-medium hover:bg-rose-700 transition-colors"
+                  className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
                 >
-                  🛑 End Interview
+                  End interview
                 </button>
               </div>
-
-              {/* Microphone Status */}
-              <div className="mt-2 text-center">
-                <div className={`text-xs px-2 py-1 rounded-full ${
-                  micActive 
-                    ? 'bg-green-600 text-white animate-pulse' 
-                    : 'bg-gray-600 text-gray-300'
-                }`}>
-                  {micActive ? '🎤 Listening...' : '🔇 Mic Off'}
-                </div>
-              </div>
-
-              {/* Debug Info */}
-              <div className="mt-2 text-center">
-                <div className="text-white text-xs bg-purple-600/70 px-2 py-1 rounded-full">
-                  Listening: {listening ? 'Yes' : 'No'}
-                </div>
-                {transcript && (
-                  <div className="text-white text-xs bg-blue-600/70 px-2 py-1 rounded-full mt-1">
-                    "{transcript.substring(0, 50)}{transcript.length > 50 ? '...' : ''}"
+            }
+          >
+            {history.map((message: { role: string; content: string }, idx: number) => (
+              <div
+                key={idx}
+                className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                  message.role === "assistant"
+                    ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                    : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                  {message.role === "assistant" && (
+                    <Image
+                      src={interviewer.avatar}
+                      alt={interviewer.name}
+                      width={28}
+                      height={28}
+                      className="shrink-0 rounded-full"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 text-center">
+                    <p className="mb-1 text-xs font-semibold opacity-90">
+                      {message.role === "assistant" ? interviewer.name : "You"}
+                    </p>
+                    <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
                   </div>
-                )}
+                  {message.role === "user" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                      You
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            ))}
+          </ScenarioChatLayout>
         )}
 
       {/* Completion Screen */}

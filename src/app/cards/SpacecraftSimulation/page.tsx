@@ -8,7 +8,10 @@ import { Canvas } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import SoundWave from "@/app/components/soundWave/page";
 import { saveScenarioScore } from "@/utils/scoreManager";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
 import Confetti from "react-confetti";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 interface ScoreData {
   points: number;
@@ -44,9 +47,12 @@ export default function SpacecraftSimulation() {
   const [timerActive, setTimerActive] = useState(false);
 
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const {
     transcript,
+    interimTranscript,
+    finalTranscript,
     listening,
     resetTranscript,
     browserSupportsSpeechRecognition,
@@ -93,6 +99,13 @@ export default function SpacecraftSimulation() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [conversationHistory, interimTranscript, finalTranscript]);
 
   const handleCompletion = (status: string) => {
     console.log(`✅ Spacecraft Simulation completed with status: ${status}`);
@@ -193,52 +206,37 @@ export default function SpacecraftSimulation() {
   const playJarvisVoice = async (text: string) => {
     try {
       setJarvisSpeaking(true);
-      
+
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.onerror = null;
+          currentAudioRef.current.onpause = null;
+          currentAudioRef.current.pause();
+          currentAudioRef.current.currentTime = 0;
+          currentAudioRef.current.src = "";
+        } catch {
+          /* ignore */
+        }
+      }
+
       const response = await fetch("/api/SpacecraftSimulation/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, speaker: "Jarvis" }),
       });
-      
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
-        // Clean up previous audio properly to prevent AbortError
-        if (currentAudioRef.current) {
-          try {
-            currentAudioRef.current.onended = null;
-            currentAudioRef.current.onerror = null;
-            currentAudioRef.current.onpause = null;
-            currentAudioRef.current.pause();
-            currentAudioRef.current.currentTime = 0;
-            currentAudioRef.current.src = '';
-    } catch (error) {
-            console.log("Previous audio cleanup completed");
-          }
-        }
-        
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-        
-        audio.onended = () => {
-          setJarvisSpeaking(false);
-          // Clean up the URL object
-          URL.revokeObjectURL(audioUrl);
-          currentAudioRef.current = null;
-        };
-        
-        audio.onerror = () => {
-          console.error("Audio playback error");
-          setJarvisSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-          currentAudioRef.current = null;
-        };
-        
-        await audio.play();
+
+      if (!response.ok) {
+        console.error("TTS failed:", await response.text());
+        return;
       }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
     } catch (error) {
       console.error("TTS error:", error);
+    } finally {
       setJarvisSpeaking(false);
     }
   };
@@ -409,6 +407,7 @@ export default function SpacecraftSimulation() {
   };
 
   const handleStartMission = () => {
+    unlockWebAudioOnUserGesture();
     console.log("🚀 [Mission] Starting mission...");
     setPhase("emergency");
   };
@@ -705,40 +704,78 @@ export default function SpacecraftSimulation() {
             </div>
           </div>
 
-                    {/* Central Console Chat Display */}
-          <div className="absolute left-1/3 transform -translate-x-1/2 z-30 w-[450px] max-h-72" style={{ top: '35%' }}>
-            <div className="bg-transparent border border-green-400/30 rounded-lg p-6 shadow-lg">
-              <div className="text-center mb-4">
-                <div className="text-sm font-mono text-green-400 tracking-wider opacity-70">MISSION_LOG.TXT</div>
+                    {/* Central Console Chat Display — mismo estilo de burbujas que otros cursos */}
+          <div className="absolute left-1/3 z-30 w-[min(100vw-2rem,28rem)] max-w-[28rem] -translate-x-1/2 transform" style={{ top: "32%" }}>
+            <div className="rounded-2xl border-2 border-rose-500/45 bg-white/10 p-4 shadow-lg backdrop-blur-md">
+              <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-rose-200/90">
+                Live transcription
               </div>
-              <div className="space-y-2 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400/50">
-                {conversationHistory.map((msg, index) => (
-                  <div key={index} className="font-mono text-sm">
-                    <div className={`${
-                    msg.speaker === "JARVIS" 
-                        ? "text-green-400" 
-                        : "text-green-300"
-                    } opacity-80`}>
-                      <span className="text-green-500 opacity-60">[{msg.speaker}]:</span> {msg.text}
+              <div className="mb-3 min-h-[2.5rem] text-center text-sm leading-relaxed text-white">
+                {micActive && listening && (finalTranscript || interimTranscript) ? (
+                  <p>
+                    <span className="text-white">{finalTranscript}</span>
+                    {interimTranscript ? (
+                      <span className="italic text-rose-100/95"> {interimTranscript}</span>
+                    ) : null}
+                  </p>
+                ) : micActive ? (
+                  <p className="text-white/55">Speak — words appear here in real time.</p>
+                ) : (
+                  <p className="text-white/55">Unmute to transmit.</p>
+                )}
+              </div>
+              <div className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-white/70">
+                Conversation
+              </div>
+              <div
+                ref={chatScrollRef}
+                className="flex max-h-40 flex-col gap-3 overflow-y-auto px-1 sm:max-h-44"
+              >
+                {conversationHistory.map((msg, index) => {
+                  const isJarvis = msg.speaker === "JARVIS";
+                  return (
+                    <div
+                      key={index}
+                      className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                        isJarvis
+                          ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                          : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                        {isJarvis && (
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                            AI
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1 text-center">
+                          <p className="mb-1 text-xs font-semibold opacity-90">{msg.speaker}</p>
+                          <p className="text-sm leading-relaxed sm:text-[15px]">{msg.text}</p>
+                        </div>
+                        {!isJarvis && (
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                            You
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {conversationHistory.length === 0 && (
-                <div className="text-green-400/50 font-mono text-sm text-center py-6">
-                  AWAITING_TRANSMISSION...
-                </div>
+                <div className="py-4 text-center text-sm text-white/50">Awaiting transmission…</div>
               )}
             </div>
-            
-
-            </div>
+          </div>
             
 
 
           {/* Voice Call Controls - Bottom Area */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 z-30" style={{ top: '60%' }}>
-            <div className="flex justify-center gap-4">
+          <div className="absolute left-1/2 z-30 w-full max-w-md -translate-x-1/2 transform px-3" style={{ top: "58%" }}>
+            <div className="mb-3 flex justify-center">
+              <AudioTestStrip />
+            </div>
+            <div className="flex flex-wrap justify-center gap-4">
               <button
                 onClick={() => {
                   console.log("🎤 [Voice] Mute/Unmute clicked, current state:", { micActive, listening });

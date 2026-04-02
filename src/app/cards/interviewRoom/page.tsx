@@ -11,7 +11,10 @@ import SoundWave from "@/app/components/soundWave/page";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { saveCardScore } from "@/app/utils/scoringUtils";
-
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 export default function InterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "main">("intro");
@@ -80,6 +83,13 @@ export default function InterviewRoom() {
     }
   }, [listening, transcript, interviewStarted, micActive]);
 
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [history, interimTranscript, finalTranscript]);
+
   // ✅ Load completion state from localStorage
   useEffect(() => {
     const completed = localStorage.getItem("InterviewRoom(Easy)_Completed") === "true";
@@ -124,12 +134,9 @@ export default function InterviewRoom() {
     { name: "Charlie", image: "/avatars/interview-younger-woman.png" },
     { name: "Alice", image: "/avatars/interview-older-woman.png" },
   ];
-  // Unlock audio context on first user interaction
   const unlockAudio = () => {
     if (audioUnlockedRef.current) return;
-    const dummy = new Audio();
-    dummy.src = "";
-    dummy.play().catch(() => {});
+    unlockWebAudioOnUserGesture();
     audioUnlockedRef.current = true;
     console.log("🔓 Audio context unlocked");
   };
@@ -156,14 +163,12 @@ export default function InterviewRoom() {
   //   await getInterviewerQuestion(interviewers[0].name);
   // };
   const startInterview = async () => {
-    // Request microphone permission first
+    unlockAudio();
     const micPermission = await requestMicrophonePermission();
     if (!micPermission) {
       console.log("❌ Cannot start interview without microphone permission");
       return;
     }
-
-    unlockAudio();
 
     // clear old data
     resetTranscript();        // ✅ clear previous transcript
@@ -324,47 +329,15 @@ const playVoice = async (text: string, speaker: string) => {
     console.log(`🎵 TTS blob size:`, blob.size, `bytes`);
     
     const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    currentAudioRef.current = audio;
+    await playAudioFromObjectUrl(url, currentAudioRef);
 
-    console.log(`🎵 Audio element created, starting playback...`);
+    console.log(`✅ Finished speaking: ${speaker}`);
+    setSpeakingIndex(null);
 
-    await new Promise<void>((resolve, reject) => {
-      const handleEnd = () => {
-        if (currentAudioRef.current !== audio) {
-          URL.revokeObjectURL(url);
-          resolve();
-          return;
-        }
-
-        console.log(`✅ Finished speaking: ${speaker}`);
-        setSpeakingIndex(null);
-        URL.revokeObjectURL(url);
-        currentAudioRef.current = null;
-
-        // Restart mic only if interview is active
-        if (interviewStarted) {
-          setMicActive(true);
-          SpeechRecognition.startListening({ continuous: true });
-        }
-        resolve();
-      };
-
-      audio.onended = handleEnd;
-      audio.onerror = (e) => {
-        console.error(`❌ Audio error for ${speaker}:`, e);
-        if (currentAudioRef.current !== audio) {
-          resolve();
-        } else {
-          reject(e);
-        }
-      };
-
-      audio.play().catch((e) => {
-        console.error(`❌ Audio play failed for ${speaker}:`, e);
-        if (currentAudioRef.current === audio) reject(e);
-      });
-    });
+    if (interviewStarted) {
+      setMicActive(true);
+      SpeechRecognition.startListening({ continuous: true });
+    }
   } catch (e) {
     console.error(`❌ playVoice error for ${speaker}:`, e);
     setSpeakingIndex(null);
@@ -578,152 +551,164 @@ const playVoice = async (text: string, speaker: string) => {
                   </div>
                 )}
 
-                <div
-                  className="relative w-full min-h-screen bg-gray-100"
-                >
-                  {/* Layer 2 - Enhanced modern background extension */}
+                <div className="relative w-full min-h-screen bg-gray-100">
                   <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
-                    <div 
+                    <div
                       className="w-full h-full bg-cover bg-center bg-no-repeat"
                       style={{
                         backgroundImage: "url('/backgrounds/interviewBg.png')",
-                        filter: 'blur(3px) brightness(1.1)',
-                        transform: 'scale(1.1)'
+                        filter: "blur(3px) brightness(1.1)",
+                        transform: "scale(1.1)",
                       }}
-                    ></div>
+                    />
                   </div>
 
-
-                  <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
-                    {/* Timer Display */}
-                    {interviewStarted && (
-                      <div className="absolute top-1 right-2  transform -translate-x-1/2 z-[200]">
-                        <div className="bg-black/70 backdrop-blur-sm rounded-full px-6 py-3 border-2 border-white/30">
-                          <div className="text-white text-center">
-                            <div className="text-sm text-gray-300 mb-1">⏱️ Time Remaining</div>
-                            <div className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>
-                              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  {!interviewStarted ? (
+                    <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center gap-10 px-4 py-12">
+                      <div className="flex flex-wrap items-start justify-center gap-6">
+                        {interviewers.map((interviewer, idx) => (
+                          <div key={idx} className="flex flex-col items-center">
+                            <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-green-400 bg-white shadow-md sm:h-36 sm:w-36">
+                              <Image
+                                src={interviewer.image}
+                                alt={interviewer.name}
+                                width={144}
+                                height={144}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <span className="mt-2 rounded-full bg-black px-3 py-1 text-sm font-medium text-white ring-2 ring-white">
+                              {interviewer.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startInterview}
+                        className="rounded-lg bg-indigo-600 px-8 py-3 font-semibold text-white transition hover:bg-indigo-700"
+                      >
+                        Start Interview
+                      </button>
+                    </div>
+                  ) : (
+                    <ScenarioChatLayout
+                      chatScrollRef={chatScrollRef}
+                      finalTranscript={finalTranscript}
+                      interimTranscript={interimTranscript}
+                      listening={listening}
+                      micActive={micActive}
+                      headerSlot={
+                        <div className="mx-auto flex w-full max-w-2xl shrink-0 flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            <span
+                              className={`rounded-full px-4 py-1.5 text-sm font-bold backdrop-blur-md ${
+                                timeLeft <= 10
+                                  ? "animate-pulse bg-red-600/90 text-white"
+                                  : "bg-white/20 text-green-300"
+                              }`}
+                            >
+                              Time: {Math.floor(timeLeft / 60)}:
+                              {(timeLeft % 60).toString().padStart(2, "0")}
+                            </span>
+                            <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                              Q: {questionCount}
+                            </span>
+                            <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-green-300 backdrop-blur-md sm:text-sm">
+                              Score: {score}/{maxScore}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                              <Image
+                                src={interviewers[index].image}
+                                alt={interviewers[index].name}
+                                width={64}
+                                height={64}
+                                className={`h-full w-full rounded-full object-cover ring-2 ${
+                                  speakingIndex === index ? "animate-pulse ring-green-400" : "ring-white/40"
+                                } transition-all`}
+                              />
+                              {speakingIndex === index && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <SoundWave speaking={true} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-left">
+                              <h3 className="text-base font-bold text-white sm:text-lg">{interviewers[index].name}</h3>
+                              <p className="text-xs text-blue-200 sm:text-sm">Current interviewer</p>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Interviewers */}
-                    <div className="flex flex-wrap items-start justify-center gap-8 z-[100]">
-                      {interviewers.map((interviewer, idx) => (
-                        <div key={idx} className="flex flex-col items-center">
-                          <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                            <Image
-                              src={interviewer.image}
-                              alt={interviewer.name}
-                              width={144}
-                              height={144}
-                              className="object-cover w-full h-full"
-                            />
-                          </div>
-                          <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
-                            {interviewer.name}
-                          </span>
-                          <SoundWave speaking={speakingIndex === idx} />
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* You */}
-                    <div className="flex flex-col items-center z-[100] mt-8">
-                      {micActive && <SoundWave speaking={listening} />}
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                        <Image
-                          src="/avatars/user-avatar.png"
-                          alt="You"
-                          width={112}
-                          height={112}
-                          className="object-cover w-full h-full"
-                        />
-                      </div>
-                      <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
-                        You
-                      </span>
-                      
-                      {/* Microphone Status */}
-                      {interviewStarted && (
-                        <div className="mt-2 text-center">
-                          <div className={`text-xs px-2 py-1 rounded-full ${
-                            micActive 
-                              ? 'bg-green-600 text-white animate-pulse' 
-                              : 'bg-gray-600 text-gray-300'
-                          }`}>
-                            {micActive ? '🎤 Listening...' : '🔇 Mic Off'}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Controls */}
-                      <div className="flex gap-3 mt-4">
-                        {!interviewStarted ? (
+                      }
+                      hintText={
+                        micActive
+                          ? "Speak naturally — transcription updates above as you talk."
+                          : "Unmute the microphone to respond."
+                      }
+                      audioHelpSlot={<AudioTestStrip />}
+                      controlsSlot={
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {micActive && <SoundWave speaking={listening} />}
                           <button
-                            onClick={startInterview}
-                            className="px-4 py-2 rounded-lg bg-indigo-600 text-white"
+                            type="button"
+                            onClick={handleMute}
+                            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                           >
-                            Start Interview
+                            {micActive ? "Mute" : "Unmute"}
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={handleMute}
-                              className="px-4 py-2 rounded-lg bg-yellow-500 text-white"
-                            >
-                              {micActive ? "Mute" : "Unmute"}
-                            </button>
-                            <button
-                              onClick={() => handleStopInterview(false)}
-                              className="px-4 py-2 rounded-lg bg-rose-600 text-white"
-                            >
-                              Stop Interview
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Progress indicator */}
-                      {interviewStarted && (
-                        <div className="mt-4 text-center">
-                          <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
-                            Questions: {questionCount}
-                          </div>
-                          <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full mb-2">
-                            Score: {score}/{maxScore} points
-                          </div>
-                          <div className="text-white text-xs bg-purple-600/70 px-2 py-1 rounded-full mb-2">
-                            Mic: {micActive ? 'Active' : 'Muted'} | Listening: {listening ? 'Yes' : 'No'}
-                          </div>
-                          {transcript && (
-                            <div className="text-white text-xs bg-blue-600/70 px-2 py-1 rounded-full mb-2">
-                              "{transcript.substring(0, 50)}{transcript.length > 50 ? '...' : ''}"
-                            </div>
-                          )}
-                          {feedback && (
-                            <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
-                              Feedback: {feedback.score}/{feedback.maxScore}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleStopInterview(false)}
+                            className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                          >
+                            Stop interview
+                          </button>
                         </div>
-                      )}
-
-                      {/* Debug Info */}
-                      {interviewStarted && (
-                        <div className="mt-2 text-center">
-                          {/* <div className="text-white text-xs bg-blue-600/70 px-2 py-1 rounded-full mb-1">
-                            Transcript: {transcript ? transcript.substring(0, 30) + '...' : 'None'}
-                          </div> */}
-                          <div className="text-white text-xs bg-purple-600/70 px-2 py-1 rounded-full">
-                            Listening: {listening ? 'Yes' : 'No'}
+                      }
+                    >
+                      {history.map((message: { role: string; content: string; speaker?: string }, idx: number) => {
+                        const avatarSrc =
+                          message.role === "assistant" && message.speaker
+                            ? interviewers.find((i) => i.name === message.speaker)?.image ?? interviewers[0].image
+                            : null;
+                        const label =
+                          message.role === "assistant" && message.speaker ? message.speaker : "You";
+                        return (
+                          <div
+                            key={idx}
+                            className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                              message.role === "assistant"
+                                ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                                : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                            }`}
+                          >
+                            <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                              {message.role === "assistant" && avatarSrc && (
+                                <Image
+                                  src={avatarSrc}
+                                  alt={label}
+                                  width={28}
+                                  height={28}
+                                  className="shrink-0 rounded-full"
+                                />
+                              )}
+                              <div className="min-w-0 flex-1 text-center">
+                                <p className="mb-1 text-xs font-semibold opacity-90">{label}</p>
+                                <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
+                              </div>
+                              {message.role === "user" && (
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                                  You
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        );
+                      })}
+                    </ScenarioChatLayout>
+                  )}
                 </div>
               </>
             )}

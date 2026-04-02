@@ -10,6 +10,10 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 interface Message {
   role: "assistant" | "user";
@@ -40,9 +44,16 @@ export default function ParkingTicket(): React.JSX.Element {
   const router = useRouter();
 
   const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const { transcript, listening, resetTranscript } = useSpeechRecognition();
+  const {
+    transcript,
+    interimTranscript,
+    finalTranscript,
+    listening,
+    resetTranscript,
+  } = useSpeechRecognition();
   const audioUnlockedRef = useRef<boolean>(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(4 * 60); // 6 minutes in seconds
 
@@ -66,6 +77,13 @@ export default function ParkingTicket(): React.JSX.Element {
       resetTranscript();
     }
   }, [listening, transcript]);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [history, interimTranscript, finalTranscript]);
 
   // Monitor question count changes
   useEffect(() => {
@@ -112,12 +130,9 @@ export default function ParkingTicket(): React.JSX.Element {
 
   const officer: Officer = { name: "Officer Davis", image: "/avatars/parking-police-man.png" };
 
-  // Unlock audio context on first user interaction
   const unlockAudio = (): void => {
     if (audioUnlockedRef.current) return;
-    const dummy = new Audio();
-    dummy.src = "";
-    dummy.play().catch(() => {});
+    unlockWebAudioOnUserGesture();
     audioUnlockedRef.current = true;
     console.log("🔓 Audio context unlocked");
   };
@@ -334,18 +349,16 @@ export default function ParkingTicket(): React.JSX.Element {
     }
   };
 
-  // Play voice
   const playVoice = async (text: string, speaker: string): Promise<void> => {
-    // Stop any currently playing audio first
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
     }
-    
+
     setSpeakingIndex(0);
     try {
       console.log(`🎙️ Playing voice for ${speaker}:`, text.substring(0, 50) + "...");
-      
+
       const res = await fetch("/api/policeTicket/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -353,46 +366,22 @@ export default function ParkingTicket(): React.JSX.Element {
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`TTS failed: ${res.status} - ${errorText}`);
+        console.error("TTS failed:", await res.text());
+        setSpeakingIndex(null);
+        return;
       }
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      
-      // Store reference to current audio
-      currentAudioRef.current = audio;
+      if (blob.size < 100) {
+        console.error("TTS inválido; revisa ELEVENLABS_API_KEY");
+        setSpeakingIndex(null);
+        return;
+      }
 
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => {
-          console.log(`✅ Finished speaking: ${speaker}`);
-          setSpeakingIndex(null);
-          URL.revokeObjectURL(url);
-          if (currentAudioRef.current === audio) {
-            currentAudioRef.current = null;
-          }
-          resolve();
-        };
-        audio.onerror = (e) => {
-          console.error("Audio error:", e);
-          setSpeakingIndex(null);
-          URL.revokeObjectURL(url);
-          if (currentAudioRef.current === audio) {
-            currentAudioRef.current = null;
-          }
-          reject(new Error("Audio playback failed"));
-        };
-        audio.play().catch((err) => {
-          console.warn("Autoplay blocked, user interaction required:", err);
-          setSpeakingIndex(null);
-          URL.revokeObjectURL(url);
-          if (currentAudioRef.current === audio) {
-            currentAudioRef.current = null;
-          }
-          reject(err);
-        });
-      });
+      const url = URL.createObjectURL(blob);
+      await playAudioFromObjectUrl(url, currentAudioRef);
+      console.log(`✅ Finished speaking: ${speaker}`);
+      setSpeakingIndex(null);
     } catch (e) {
       console.error("playVoice error:", e);
       setSpeakingIndex(null);
@@ -591,118 +580,165 @@ export default function ParkingTicket(): React.JSX.Element {
                 </div>
               )}
 
-              <div
-                className="relative w-full min-h-screen bg-gray-100"
-              >
-                {/* Layer 2 - Enhanced modern background extension */}
+              <div className="relative w-full min-h-screen bg-gray-100">
                 <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
-                  <div 
+                  <div
                     className="w-full h-full bg-cover bg-center bg-no-repeat"
                     style={{
                       backgroundImage: "url('/backgrounds/parkingBg.png')",
-                      filter: 'blur(3px) brightness(1.1)',
-                      transform: 'scale(1.1)'
+                      filter: "blur(3px) brightness(1.1)",
+                      transform: "scale(1.1)",
                     }}
-                  ></div>
+                  />
                 </div>
 
-
-                <div className="relative z-[2] flex flex-col items-center justify-evenly min-h-screen">
-                  <div className="flex flex-wrap items-start justify-center gap-8 z-[100]">
-                    <div className="flex flex-col items-center">
-                      <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full border-4 border-blue-400 bg-white shadow-md overflow-hidden">
+                {!conversationStarted ? (
+                  <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center px-4 py-12">
+                    <div className="mb-8 flex flex-col items-center">
+                      <div className="h-36 w-36 overflow-hidden rounded-full border-4 border-blue-400 bg-white shadow-md sm:h-40 sm:w-40">
                         <Image
                           src={officer.image}
                           alt={officer.name}
-                          width={144}
-                          height={144}
-                          className="object-cover w-full h-full"
+                          width={160}
+                          height={160}
+                          className="h-full w-full object-cover"
                         />
                       </div>
-                      <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
+                      <span className="mt-3 rounded-full bg-black px-4 py-2 text-sm font-medium text-white ring-2 ring-white">
                         {officer.name}
                       </span>
-                      <SoundWave speaking={speakingIndex === 0} />
                     </div>
+                    <button
+                      type="button"
+                      onClick={startConversation}
+                      className="rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
+                    >
+                      Start Conversation
+                    </button>
                   </div>
-
-                  <div className="flex flex-col items-center z-[100] mt-8">
-                    {micActive && <SoundWave speaking={listening} />}
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 mt-2 rounded-full border-4 border-green-400 bg-white shadow-md overflow-hidden">
-                      <Image
-                        src="/avatars/user-avatar.png"
-                        alt="You"
-                        width={112}
-                        height={112}
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                    <span className="mt-2 text-sm font-medium text-white bg-black rounded-full px-3 py-1 ring-2 ring-white">
-                      You
-                    </span>
-
-                    <div className="flex gap-3 mt-4">
-                      {!conversationStarted ? (
-                        <button
-                          onClick={startConversation}
-                          className="px-4 py-2 rounded-lg bg-indigo-600 text-white"
-                        >
-                          Start Conversation
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={handleMute}
-                            className="px-4 py-2 rounded-lg bg-yellow-500 text-white"
+                ) : (
+                  <ScenarioChatLayout
+                    chatScrollRef={chatScrollRef}
+                    finalTranscript={finalTranscript}
+                    interimTranscript={interimTranscript}
+                    listening={listening}
+                    micActive={micActive}
+                    headerSlot={
+                      <div className="mx-auto flex w-full max-w-2xl shrink-0 flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                            Q: {questionCount}/8
+                          </span>
+                          <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-green-300 backdrop-blur-md sm:text-sm">
+                            Score: {score}/{maxScore}
+                          </span>
+                          {currentQuestionScore > 0 && (
+                            <span className="animate-pulse rounded-full bg-emerald-500/80 px-2 py-1 text-[10px] font-semibold text-white sm:text-xs">
+                              +{currentQuestionScore} pt
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md sm:text-sm ${
+                              timeRemaining <= 60
+                                ? "animate-pulse bg-red-600/90"
+                                : timeRemaining <= 120
+                                  ? "bg-amber-600/85"
+                                  : "bg-blue-600/80"
+                            }`}
                           >
-                            {micActive ? "Mute" : "Unmute"}
-                          </button>
-                          <button
-                            onClick={() => handleStopConversation(false)}
-                            className="px-6 py-2 rounded-lg bg-rose-600 text-white"
-                          >
-                            Stop Conversation
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Progress indicator */}
-                    {conversationStarted && (
-                      <div className="mt-4 text-center">
-                        <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
-                          Questions: {questionCount}/8
+                            Time: {formatTime(timeRemaining)}
+                          </span>
                         </div>
-                        <div className="text-white text-sm bg-green-600/70 px-3 py-1 rounded-full">
-                          Score: {score}/{maxScore} points
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                            <Image
+                              src={officer.image}
+                              alt={officer.name}
+                              width={64}
+                              height={64}
+                              className={`h-full w-full rounded-full object-cover ring-2 ${
+                                speakingIndex === 0 ? "animate-pulse ring-green-400" : "ring-white/40"
+                              } transition-all`}
+                            />
+                            {speakingIndex === 0 && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <SoundWave speaking={true} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <h3 className="text-base font-bold text-white sm:text-lg">{officer.name}</h3>
+                            <p className="text-xs text-blue-200 sm:text-sm">Parking enforcement</p>
+                          </div>
                         </div>
-                        {currentQuestionScore > 0 && (
-                          <div className="text-green-300 text-xs mt-1 animate-pulse">
-                            +{currentQuestionScore} point{currentQuestionScore !== 1 ? 's' : ''}!
-                          </div>
-                        )}
-                        {/* Time remaining indicator */}
-                        <div className={`text-white text-sm px-3 py-1 rounded-full mt-2 ${
-                          timeRemaining <= 60 ? 'bg-red-600/80 animate-pulse' : 
-                          timeRemaining <= 120 ? 'bg-yellow-600/80' : 'bg-blue-600/80'
-                        }`}>
-                          ⏰ Time: {formatTime(timeRemaining)}
-                        </div>
-                        {/* Time warning */}
-                        {timeRemaining <= 60 && (
-                          <div className="text-red-300 text-xs mt-1 animate-pulse bg-white rounded-full px-3 py-1">
-                            ⚠️ Time is running out! Make your final responses quickly.
-                          </div>
-                        )}
-                        {timeRemaining <= 120 && timeRemaining > 60 && (
-                          <div className="text-yellow-300 text-xs mt-1 bg-white rounded-full px-3 py-1">
-                            ⏳ Less than 3 minutes remaining!
-                          </div>
-                        )}
                       </div>
+                    }
+                    hintText={
+                      micActive
+                        ? "Speak naturally — transcription updates above as you talk."
+                        : "Unmute the microphone to respond."
+                    }
+                    audioHelpSlot={<AudioTestStrip />}
+                    controlsSlot={
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {micActive && <SoundWave speaking={listening} />}
+                        <button
+                          type="button"
+                          onClick={handleMute}
+                          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                        >
+                          {micActive ? "Mute" : "Unmute"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStopConversation(false)}
+                          className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                        >
+                          Stop conversation
+                        </button>
+                      </div>
+                    }
+                  >
+                    {timeRemaining <= 60 && (
+                      <p className="mb-2 text-center text-xs font-medium text-rose-200">
+                        Time is running out — answer concisely.
+                      </p>
                     )}
-                  </div>
-                </div>
+                    {history.map((message, idx) => (
+                      <div
+                        key={idx}
+                        className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                          message.role === "assistant"
+                            ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                            : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                        }`}
+                      >
+                        <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                          {message.role === "assistant" && (
+                            <Image
+                              src={officer.image}
+                              alt={officer.name}
+                              width={28}
+                              height={28}
+                              className="shrink-0 rounded-full"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1 text-center">
+                            <p className="mb-1 text-xs font-semibold opacity-90">
+                              {message.role === "assistant" ? officer.name : "You"}
+                            </p>
+                            <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
+                          </div>
+                          {message.role === "user" && (
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                              You
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </ScenarioChatLayout>
+                )}
               </div>
             </>
           )}

@@ -7,6 +7,13 @@ interface TTSRequest {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    if (!process.env.OPENAI_API_KEY?.trim()) {
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY no está configurada en el servidor" },
+        { status: 503 }
+      );
+    }
+
     const { text, voice = "onyx" }: TTSRequest = await req.json();
 
     if (!text || text.trim().length === 0) {

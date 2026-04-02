@@ -10,6 +10,10 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 export default function EasyParkingTicket() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -27,9 +31,16 @@ export default function EasyParkingTicket() {
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const router = useRouter();
 
-  const { transcript, listening, resetTranscript } = useSpeechRecognition();
+  const {
+    transcript,
+    interimTranscript,
+    finalTranscript,
+    listening,
+    resetTranscript,
+  } = useSpeechRecognition();
   const audioUnlockedRef = useRef(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Officer data
   const officer = {
@@ -95,12 +106,15 @@ export default function EasyParkingTicket() {
     }
   }, [listening, transcript, conversationStarted, processUserResponse]);
 
-  // Unlock audio context on first user interaction
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [history, interimTranscript, finalTranscript]);
+
   const unlockAudio = () => {
     if (audioUnlockedRef.current) return;
-    const dummy = new Audio();
-    dummy.src = "";
-    dummy.play().catch(() => {});
+    unlockWebAudioOnUserGesture();
     audioUnlockedRef.current = true;
     console.log("🔓 Audio context unlocked");
   };
@@ -127,14 +141,12 @@ export default function EasyParkingTicket() {
   ];
 
   const startConversation = async () => {
-    // Request microphone permission first
+    unlockAudio();
     const micPermission = await requestMicrophonePermission();
     if (!micPermission) {
       console.log("❌ Cannot start conversation without microphone permission");
       return;
     }
-
-    unlockAudio();
     setShowIntroPopup(false);
     setConversationStarted(true);
     setPhase("conversation");
@@ -250,33 +262,24 @@ export default function EasyParkingTicket() {
         body: JSON.stringify({ text, voice: officer.voice }),
       });
 
-      if (res.ok) {
-        const audioBlob = await res.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-
-        return new Promise<void>((resolve, reject) => {
-          audio.onended = () => {
-            console.log(`✅ Audio finished for ${speaker}`);
-            setSpeakingIndex(null);
-            URL.revokeObjectURL(audioUrl);
-            currentAudioRef.current = null;
-            resolve();
-          };
-
-          audio.onerror = (e) => {
-            console.error(`❌ Audio error for ${speaker}:`, e);
-            setSpeakingIndex(null);
-            if (currentAudioRef.current === audio) reject(e);
-          };
-
-          audio.play().catch((e) => {
-            console.error(`❌ Audio play failed for ${speaker}:`, e);
-            if (currentAudioRef.current === audio) reject(e);
-          });
-        });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`❌ TTS API error:`, res.status, errText);
+        setSpeakingIndex(null);
+        return;
       }
+
+      const audioBlob = await res.blob();
+      if (audioBlob.size < 100) {
+        console.error("❌ TTS blob inválido; revisa OPENAI_API_KEY en .env.local");
+        setSpeakingIndex(null);
+        return;
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+      console.log(`✅ Audio finished for ${speaker}`);
+      setSpeakingIndex(null);
     } catch (error) {
       console.error(`❌ playVoice error for ${speaker}:`, error);
       setSpeakingIndex(null);
@@ -451,130 +454,119 @@ export default function EasyParkingTicket() {
           </div>
         )}
 
-        {/* Main Conversation Interface */}
         {conversationStarted && !showCompletion && (
-          <div className="container mx-auto px-4 py-8">
-            {/* Status indicators */}
-            <div className="mb-8 flex justify-center gap-4">
-              <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
-                Question: {questionNumber}/2
-              </span>
-              <span className="bg-white/20 backdrop-blur-md rounded-full px-6 py-2 text-white font-semibold">
-                Score: {score}/{maxScore}
-              </span>
-              <span className={`backdrop-blur-md rounded-full px-6 py-2 font-semibold ${
-                explanationGiven ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'
-              }`}>
-                Explanation: {explanationGiven ? '✅ Given' : '⏳ Needed'}
-              </span>
-            </div>
-
-            {/* Officer */}
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 mb-8">
-                <div className="text-center">
-                  <div className="relative mb-6">
+          <ScenarioChatLayout
+            chatScrollRef={chatScrollRef}
+            finalTranscript={finalTranscript}
+            interimTranscript={interimTranscript}
+            listening={listening}
+            micActive={micActive}
+            headerSlot={
+              <div className="mx-auto w-full max-w-2xl shrink-0 space-y-3">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                    Question: {questionNumber}/2
+                  </span>
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                    Score: {score}/{maxScore}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md sm:text-sm ${
+                      explanationGiven
+                        ? "bg-green-500/20 text-green-300"
+                        : "bg-blue-500/20 text-blue-300"
+                    }`}
+                  >
+                    Explanation: {explanationGiven ? "✅ Given" : "⏳ Needed"}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                      <Image
+                        src={officer.avatar}
+                        alt={officer.name}
+                        width={64}
+                        height={64}
+                        className={`h-full w-full rounded-full object-cover ring-2 ${
+                          speakingIndex === 0
+                            ? "animate-pulse ring-green-400"
+                            : "ring-white/40"
+                        } transition-all`}
+                      />
+                      {speakingIndex === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <SoundWave speaking={true} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-base font-bold text-white sm:text-lg">{officer.name}</h3>
+                      <p className="text-xs text-blue-200 sm:text-sm">{officer.title}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+            hintText={
+              micActive
+                ? "🎤 Speak naturally — transcription updates above in real time."
+                : "👂 Unmute to respond to the officer."
+            }
+            audioHelpSlot={<AudioTestStrip />}
+            controlsSlot={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleMute}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                >
+                  {micActive ? "🔇 Mute" : "🎤 Unmute"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStopConversation}
+                  className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                >
+                  🛑 End conversation
+                </button>
+              </div>
+            }
+          >
+            {history.map((message, idx) => (
+              <div
+                key={idx}
+                className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                  message.role === "assistant"
+                    ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                    : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                  {message.role === "assistant" && (
                     <Image
                       src={officer.avatar}
                       alt={officer.name}
-                      width={120}
-                      height={120}
-                      className={`mx-auto rounded-full ring-4 ${
-                        speakingIndex === 0 ? 'ring-green-400 animate-pulse' : 'ring-white/30'
-                      } transition-all`}
+                      width={28}
+                      height={28}
+                      className="shrink-0 rounded-full"
                     />
-                    {speakingIndex === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <SoundWave />
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">{officer.name}</h3>
-                  <p className="text-blue-200 text-lg">{officer.title}</p>
-                </div>
-              </div>
-
-              {/* Conversation History */}
-              <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 mb-8 max-h-96 overflow-y-auto">
-                <h3 className="text-xl font-semibold text-white mb-4">Conversation</h3>
-                <div className="space-y-4">
-                  {history.map((message, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-xl ${
-                        message.role === "assistant"
-                          ? "bg-blue-600/30 text-white ml-0 mr-8"
-                          : "bg-green-600/30 text-white ml-8 mr-0"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {message.role === "assistant" && (
-                          <Image
-                            src={officer.avatar}
-                            alt={officer.name}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm mb-1">
-                            {message.role === "assistant" ? officer.name : "You"}
-                          </p>
-                          <p>{message.content}</p>
-                        </div>
-                        {message.role === "user" && (
-                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-bold">You</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Response Interface */}
-              <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6">
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-semibold text-white mb-2">Your Response</h3>
-                  <p className="text-blue-200">Use the controls below to manage your microphone</p>
-                </div>
-
-                <div className="flex flex-col items-center space-y-4">
-                  {/* Microphone Controls */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleMute}
-                      className="px-4 py-2 rounded-lg bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors"
-                    >
-                      {micActive ? "🔇 Mute" : "🎤 Unmute"}
-                    </button>
-                    <button
-                      onClick={handleStopConversation}
-                      className="px-6 py-2 rounded-lg bg-rose-600 text-white font-medium hover:bg-rose-700 transition-colors"
-                    >
-                      🛑 End Conversation
-                    </button>
-                  </div>
-
-                  <div className="text-center">
-                    <p className="text-white text-lg font-semibold mb-2">
-                      {micActive ? "🎤 Speak naturally - I'm listening!" : "👂 Microphone is muted"}
+                  )}
+                  <div className="min-w-0 flex-1 text-center">
+                    <p className="mb-1 text-xs font-semibold opacity-90">
+                      {message.role === "assistant" ? officer.name : "You"}
                     </p>
-                    {transcript && (
-                      <div className="bg-white/20 rounded-xl p-4 mb-4">
-                        <p className="text-white">"{transcript}"</p>
-                      </div>
-                    )}
-                    {loading && (
-                      <p className="text-blue-200 animate-pulse">Processing your response...</p>
-                    )}
+                    <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
                   </div>
+                  {message.role === "user" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                      You
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
+            ))}
+          </ScenarioChatLayout>
         )}
 
         {/* Completion Screen */}
