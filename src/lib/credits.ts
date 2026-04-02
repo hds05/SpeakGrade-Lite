@@ -41,9 +41,21 @@ export async function getUserCredits(userId?: string): Promise<UserCredits> {
 
   console.log('🔍 Getting credits for user:', currentUserId);
 
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+  if (!secretKey) {
+    console.warn(
+      '[credits] CLERK_SECRET_KEY is not set. Returning default credits for display only (not saved to Clerk). Add CLERK_SECRET_KEY to .env.local to enable real balances.'
+    );
+    return {
+      ...INITIAL_CREDITS,
+      total_openai_used: 0,
+      total_elevenlabs_used: 0,
+    };
+  }
+
   try {
     console.log('📞 Creating Clerk client and getting user...');
-    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+    const clerkClient = createClerkClient({ secretKey });
     const user = await clerkClient.users.getUser(currentUserId);
     console.log('✅ User retrieved successfully:', {
       id: user.id,
@@ -97,10 +109,17 @@ export async function updateUserCredits(
   updates: Partial<UserCredits>
 ): Promise<UserCredits> {
   try {
+    const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+    if (!secretKey) {
+      throw new Error(
+        'CLERK_SECRET_KEY is not configured. Set it in .env.local to enable credit updates.'
+      );
+    }
+
     const currentCredits = await getUserCredits(userId);
     const newCredits = { ...currentCredits, ...updates };
     
-    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+    const clerkClient = createClerkClient({ secretKey });
     const user = await clerkClient.users.getUser(userId);
     await clerkClient.users.updateUserMetadata(userId, {
       publicMetadata: {

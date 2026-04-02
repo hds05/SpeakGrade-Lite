@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 
 interface CreditStatus {
@@ -84,12 +85,12 @@ export default function CreditsDisplay() {
           💳 Your Credits
           {isLowCredits && <span className="text-yellow-400 text-sm">⚠️ Low</span>}
         </h3>
-        <button 
-          onClick={() => window.location.href = '/purchase-credits'}
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors"
+        <Link
+          href="/purchase"
+          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors inline-block"
         >
           Buy More
-        </button>
+        </Link>
       </div>
       
       <div className="grid grid-cols-2 gap-4">
