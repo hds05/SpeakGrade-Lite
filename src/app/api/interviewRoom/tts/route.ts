@@ -11,15 +11,15 @@ interface TTSRequest {
 }
 
 const VOICES: Record<string, string> = {
-  Alice: "BZgkqPqms7Kj9ulSkVzn",
-  Bob: "NMbn4FNN0acONjKLsueJ",
-  Charlie: "WF4i4ZlVIKR1m1lLbJji",
+  Adam: "Gsndh0O5AnuI2Hj3YUlA",
+  Cassidy: "56AoDkrOh6qfVPDXZ7Pt",
+  Stephanie: "XJVfsOvSwUXluggMM5Jj",
 };
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body: TTSRequest = await req.json();
-    const speaker = body.speaker ?? body.conversation?.speaker ?? "Bob";
+    const speaker = body.speaker ?? body.conversation?.speaker ?? "Adam";
     const text = body.text ?? body.conversation?.text ?? "";
 
     console.log("📥 /tts received:", { speaker, text });
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Missing text" }, { status: 400 });
     }
 
-    const voiceId = VOICES[speaker] ?? VOICES.Alice;
+    const voiceId = VOICES[speaker] ?? VOICES.Adam;
     console.log(`🎙️ Using voice for: ${speaker} → ${voiceId}`);
 
     const elevenRes = await fetch(
