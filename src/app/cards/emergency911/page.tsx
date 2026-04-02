@@ -9,6 +9,9 @@ import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 export default function Emergency911() {
   const [callActive, setCallActive] = useState(false);
@@ -22,6 +25,8 @@ export default function Emergency911() {
   const [questionCount, setQuestionCount] = useState(0);
   const {
     transcript = "",
+    interimTranscript = "",
+    finalTranscript = "",
     resetTranscript,
     listening,
   } = useSpeechRecognition();
@@ -122,6 +127,7 @@ export default function Emergency911() {
         );
         return;
       }
+      unlockWebAudioOnUserGesture();
       const permissionGranted = await getMicPermission();
       if (!permissionGranted) return;
 
@@ -355,80 +361,27 @@ export default function Emergency911() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      currentAudioRef.current = audio;
 
-      // Start playing audio and wait for it to complete
-      await new Promise<void>((resolve, reject) => {
-      audio.onended = () => {
-          console.log("🔊 AI finished speaking, will restart mic after delay");
-          URL.revokeObjectURL(url);
-          currentAudioRef.current = null;
-          
-          // Restart mic after audio finishes with longer delay
-          setTimeout(() => {
-            if (callActive) {
-              console.log("🎙️ Restarting microphone after AI speech");
-            setMuted(false);
-              SpeechRecognition.startListening({ 
-                continuous: true, 
-                interimResults: false,
-                language: "en-US" 
-              });
-            }
-          }, 2500); // 2.5 second delay to ensure AI voice has completely stopped
-          resolve();
-        };
-        
-        audio.onerror = (e) => {
-          // Only log meaningful errors, not empty objects
-          if (!isEmptyError(e)) {
-            console.error("Audio error:", e);
-          } else {
-            console.log("🔊 Audio playback interrupted (expected during call end)");
-          }
-          URL.revokeObjectURL(url);
-          currentAudioRef.current = null;
-          
-          // Restart mic even on audio error
-          setTimeout(() => {
-            if (callActive) {
-              console.log("🎙️ Restarting microphone after audio error");
-              setMuted(false);
-              SpeechRecognition.startListening({ 
-                continuous: true, 
-                interimResults: false,
-                language: "en-US" 
-              });
-            }
-          }, 2000);
-          resolve(); // Don't reject for expected interruptions
-        };
-        
-        audio.play().catch((err) => {
-          // Only log meaningful errors
-          if (!isEmptyError(err)) {
-            console.error("Audio play failed:", err);
-        } else {
-            console.log("🔊 Audio play interrupted (expected during call end)");
-          }
-          URL.revokeObjectURL(url);
-          
-          // Restart mic if audio play fails
-          setTimeout(() => {
-            if (callActive) {
-              console.log("🎙️ Restarting microphone after audio play failure");
-            setMuted(false);
-              SpeechRecognition.startListening({ 
-                continuous: true, 
-                interimResults: false,
-                language: "en-US" 
-              });
-            }
-          }, 1500);
-          resolve(); // Don't reject for expected interruptions
-        });
-      });
+      try {
+        await playAudioFromObjectUrl(url, currentAudioRef);
+        console.log("🔊 AI finished speaking, will restart mic after delay");
+      } catch (e) {
+        if (!isEmptyError(e)) {
+          console.error("Audio play failed:", e);
+        }
+      }
+
+      setTimeout(() => {
+        if (callActive) {
+          console.log("🎙️ Restarting microphone after AI speech");
+          setMuted(false);
+          SpeechRecognition.startListening({
+            continuous: true,
+            interimResults: false,
+            language: "en-US",
+          });
+        }
+      }, 2500);
     } catch (err) {
       // Only log meaningful errors
       if (err && err instanceof Error) {
@@ -481,41 +434,14 @@ export default function Emergency911() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      currentAudioRef.current = audio;
-
-      // Wait for final message to complete playing
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => {
-          console.log("✅ Final emergency message completed");
-          URL.revokeObjectURL(url);
-          currentAudioRef.current = null;
-          resolve();
-        };
-        
-        audio.onerror = (e) => {
-          // Only log meaningful errors for final message
-          if (!isEmptyError(e)) {
-            console.error("Final message audio error:", e);
-          } else {
-            console.log("🔊 Final message audio interrupted");
-          }
-          URL.revokeObjectURL(url);
-          currentAudioRef.current = null;
-          resolve(); // Don't reject for final message interruptions
-        };
-        
-        audio.play().catch((err) => {
-          // Only log meaningful errors for final message
-          if (!isEmptyError(err)) {
-            console.error("Final message play failed:", err);
-          } else {
-            console.log("🔊 Final message play interrupted");
-          }
-          URL.revokeObjectURL(url);
-          resolve(); // Don't reject for final message interruptions
-        });
-      });
+      try {
+        await playAudioFromObjectUrl(url, currentAudioRef);
+        console.log("✅ Final emergency message completed");
+      } catch (e) {
+        if (!isEmptyError(e)) {
+          console.error("Final message play failed:", e);
+        }
+      }
     } catch (err) {
       // Only log meaningful errors for final message
       if (err && err instanceof Error) {
@@ -684,11 +610,22 @@ export default function Emergency911() {
         }</span>
       </div>
 
-      {/* 📝 Transcript */}
-      <div className="text-gray-200 text-sm italic text-center max-w-md">
-        {transcript ? `"${transcript}"` : 
-         currentAudioRef.current ? "AI is speaking, please wait..." :
-         muted ? "Waiting for dispatcher..." : "You can speak now..."}
+      {/* 📝 Transcript en vivo (mismo patrón que otros escenarios) */}
+      <div className="max-w-md rounded-xl border border-rose-500/35 bg-black/30 px-4 py-3 text-center text-sm text-white">
+        {listening && !muted && (finalTranscript || interimTranscript) ? (
+          <p>
+            <span>{finalTranscript}</span>
+            {interimTranscript ? <span className="italic text-rose-100/90"> {interimTranscript}</span> : null}
+          </p>
+        ) : transcript ? (
+          <p className="italic text-gray-200">&quot;{transcript}&quot;</p>
+        ) : currentAudioRef.current ? (
+          <p className="text-gray-300">AI is speaking, please wait…</p>
+        ) : muted ? (
+          <p className="text-gray-300">Waiting for dispatcher…</p>
+        ) : (
+          <p className="text-gray-300">You can speak now…</p>
+        )}
       </div>
 
       {/* Progress indicator */}
@@ -703,8 +640,12 @@ export default function Emergency911() {
         </div>
       )}
 
+      <div className="w-full max-w-md">
+        <AudioTestStrip />
+      </div>
+
       {/* 🔘 Buttons */}
-      <div className="flex gap-4 w-full justify-center">
+      <div className="flex w-full flex-wrap justify-center gap-4">
         <button
           onClick={toggleCall}
           className="px-6 py-3 bg-gradient-to-br from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 duration-300"

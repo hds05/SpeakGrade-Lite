@@ -2,6 +2,8 @@
 const nextConfig = {
   images: {
     domains: [
+      'img.clerk.com',
+      'img.clerk.dev',
       'img.freepik.com',
       'cdn3d.iconscout.com',
       'png.pngtree.com',

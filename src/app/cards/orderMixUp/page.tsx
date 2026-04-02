@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
 import Image from "next/image";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
 
@@ -20,6 +23,7 @@ export default function OrderMixUp() {
   const [mikeSpeaking, setMikeSpeaking] = useState(false);
   
   const router = useRouter();
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Order details for reference
   const orderIssues = [
@@ -163,20 +167,17 @@ export default function OrderMixUp() {
         body: JSON.stringify({ text })
       });
 
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        audio.onended = () => {
-          setMikeSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        await audio.play();
+      if (!response.ok) {
+        console.error('TTS failed:', await response.text());
+        return;
       }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      await playAudioFromObjectUrl(audioUrl, ttsAudioRef);
     } catch (error) {
       console.error('Error playing audio:', error);
+    } finally {
       setMikeSpeaking(false);
     }
   };
@@ -213,6 +214,7 @@ export default function OrderMixUp() {
   };
 
   const handleStart = () => {
+    unlockWebAudioOnUserGesture();
     setShowIntroPopup(false);
     setPhase("main");
     
@@ -315,7 +317,7 @@ export default function OrderMixUp() {
                 <h3 className="font-semibold text-blue-800 mb-2">🎯 Your Goal</h3>
                 <ul className="text-xs space-y-1">
                   <li>• Explain each problem clearly</li>
-                  <li>• Be specific about what's wrong</li>
+                  <li>• Be specific about what is wrong</li>
                   <li>• Show your receipt and coupon when asked</li>
                   <li>• Get all 4 issues fixed professionally</li>
                 </ul>
@@ -390,6 +392,52 @@ export default function OrderMixUp() {
             </div>
           </div>
         </div>
+
+        {!showIntroPopup && (
+          <div className="absolute left-1/2 top-[52%] z-[25] flex w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 px-3">
+            <div className="max-h-[min(42vh,22rem)] w-full overflow-y-auto rounded-2xl border-2 border-rose-500/45 bg-white/10 p-3 shadow-lg backdrop-blur-md">
+              <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-rose-200/90">
+                Conversation
+              </p>
+              <div className="flex flex-col gap-3">
+                {conversationHistory.map((message, idx) => (
+                  <div
+                    key={idx}
+                    className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                      message.role === "assistant"
+                        ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                        : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                      {message.role === "assistant" && (
+                        <Image
+                          src="/avatars/fastFood-young-man.png"
+                          alt="Mike"
+                          width={28}
+                          height={28}
+                          className="shrink-0 rounded-full"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1 text-center">
+                        <p className="mb-1 text-xs font-semibold opacity-90">
+                          {message.role === "assistant" ? "Mike" : "You"}
+                        </p>
+                        <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
+                      </div>
+                      {message.role === "user" && (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                          You
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <AudioTestStrip />
+          </div>
+        )}
 
         {/* Microphone Control */}
         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30">
