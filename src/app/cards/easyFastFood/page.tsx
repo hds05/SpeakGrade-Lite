@@ -609,7 +609,7 @@ export default function EasyFastFood() {
                 📄 Download Report
               </button>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/dashboard")}
                 className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg border border-green-400/30"
               >
                 🏠 Back to Dashboard

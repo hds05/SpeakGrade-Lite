@@ -525,27 +525,27 @@ export default function BasicInterviewRoom() {
       {showCompletion && feedback && (
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto text-center">
-            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 mb-8">
-              <h2 className="text-4xl font-bold text-white mb-6">🎉 Interview Complete!</h2>
+            <div className="bg-white/30 backdrop-blur-lg rounded-3xl p-8 mb-8">
+              <h2 className="text-4xl font-bold text-white mb-6 bg-gray-800 inline-block px-4 py-2 rounded-xl">🎉 Interview Complete!</h2>
               
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-green-500/20 rounded-xl p-6">
-                  <h3 className="text-2xl font-bold text-green-300 mb-2">Score</h3>
+                  <h3 className="text-2xl font-bold text-green-600 mb-2">Score</h3>
                   <p className="text-3xl font-bold text-white">{score}/{maxScore}</p>
                 </div>
                 <div className="bg-blue-500/20 rounded-xl p-6">
-                  <h3 className="text-2xl font-bold text-blue-300 mb-2">Percentage</h3>
+                  <h3 className="text-2xl font-bold text-blue-600 mb-2">Percentage</h3>
                   <p className="text-3xl font-bold text-white">{Math.round((score/maxScore) * 100)}%</p>
                 </div>
                 <div className="bg-purple-500/20 rounded-xl p-6">
-                  <h3 className="text-2xl font-bold text-purple-300 mb-2">Questions</h3>
+                  <h3 className="text-2xl font-bold text-purple-600 mb-2">Questions</h3>
                   <p className="text-3xl font-bold text-white">2/2</p>
                 </div>
               </div>
 
               <div className="bg-white/20 rounded-xl p-6 mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Feedback</h3>
-                <p className="text-blue-100 leading-relaxed">{feedback.feedback}</p>
+                <h3 className="text-xl font-semibold text-blue-600 font-bold text-2xl mb-4">Feedback</h3>
+                <p className="text-white leading-relaxed">{feedback.feedback}</p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -556,7 +556,7 @@ export default function BasicInterviewRoom() {
                   📄 Download Report
                 </button>
                 <button
-                  onClick={() => router.push("/")}
+                  onClick={() => router.push("/dashboard")}
                   className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg"
                 >
                   🏠 Back to Dashboard

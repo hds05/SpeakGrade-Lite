@@ -425,7 +425,7 @@ export default function WeeklyCheck() {
                   </button>
                   <button
                     className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-blue-500 hover:text-white"
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/dashboard")}
                   >
                     End Session
                   </button>

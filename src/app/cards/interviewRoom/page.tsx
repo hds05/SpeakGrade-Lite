@@ -607,7 +607,7 @@ export default function InterviewRoom() {
                       className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
                       onClick={() => {
                         handleStopInterview(true); // ✅ stop mic + reset interview
-                        router.push("/");
+                        router.push("/dashboard");
                       }}
                     >
                       End Session

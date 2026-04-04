@@ -475,7 +475,7 @@ export default function OutletCustomer() {
                   </button>
                   <button
                     className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-green-500 hover:text-white"
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/dashboard")}
                   >
                     Finish Shopping
                   </button>

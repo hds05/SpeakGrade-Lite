@@ -67,7 +67,7 @@ export default function EnglishGuideBot() {
             </p>
             <button
               className="inline-block mt-6 px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
-              onClick={() => router.push("/main")}
+              onClick={() => router.push("/dashboard")}
             >
               End Session
             </button>
