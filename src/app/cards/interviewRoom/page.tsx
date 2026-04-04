@@ -250,6 +250,7 @@ export default function InterviewRoom() {
     setSpeakingIndex(0);  // Highlight Adam immediately
     setInterviewStarted(true);
     interviewStartedRef.current = true;
+    setShowIntroPopup(false); // Dismiss overlay so UI buttons are clickable
     disableListeningForUser();
     setTimeLeft(Initial_Time); // Reset timer to 30 seconds
     setFeedback(null); // Reset feedback
