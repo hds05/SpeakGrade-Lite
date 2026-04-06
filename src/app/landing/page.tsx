@@ -258,8 +258,9 @@ export default function LandingPage(): React.JSX.Element {
       >
         <motion.div
           whileHover={{ scale: 1.05 }}
-          className="text-2xl font-bold text-gray-800"
+          className="text-2xl font-bold text-gray-800 flex items-center gap-2"
         >
+          <img src="/favicons/favicon.png" className="w-20 rounded-full" alt="" />
           SpeakGrade
         </motion.div>
          <ConditionalNavigation />
