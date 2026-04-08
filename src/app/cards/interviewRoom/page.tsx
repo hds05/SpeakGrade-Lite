@@ -619,7 +619,7 @@ export default function InterviewRoom() {
             ) : (
               <>
                 {/* Intro Popup */}
-                {showIntroPopup && (
+                {showIntroPopup && !interviewStarted && (
                   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
                     <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 text-center">
                       <h2 className="text-xl text-gray-700 font-bold mb-4">
@@ -681,6 +681,7 @@ export default function InterviewRoom() {
                       </button>
                     </div>
                   ) : (
+                    <div className="relative z-[2] w-full">
                     <ScenarioChatLayout
                       chatScrollRef={chatScrollRef}
                       finalTranscript={finalTranscript}
@@ -738,19 +739,19 @@ export default function InterviewRoom() {
                       }
                       audioHelpSlot={<AudioTestStrip />}
                       controlsSlot={
-                        <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                           {micActive && <SoundWave speaking={listening} />}
                           <button
                             type="button"
                             onClick={handleMute}
-                            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                            className="relative z-10 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                           >
                             {micActive ? "Mute" : "Unmute"}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleStopInterview(false)}
-                            className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                            className="relative z-10 rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
                           >
                             Stop interview
                           </button>
@@ -797,6 +798,7 @@ export default function InterviewRoom() {
                         );
                       })}
                     </ScenarioChatLayout>
+                    </div>
                   )}
                 </div>
               </>
