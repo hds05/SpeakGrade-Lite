@@ -7,7 +7,7 @@ import Header from "./app/components/header/page";
 import ClickWaveEffect from "./app/components/clickWaveEffect/ClickWaveEffect";
 import CreditsDisplay from "./app/components/creditsDisplay/page";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Swal from 'sweetalert2';
 import { useUser } from '@clerk/nextjs';
 
@@ -211,6 +211,8 @@ export default function ClientLayout({
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState<CardScore[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathname = usePathname();
+  const isDashboardRoute = (pathname ?? "").startsWith("/dashboard");
 
   // Dark mode toggle function
   const toggleDarkMode = () => {
@@ -238,8 +240,12 @@ export default function ClientLayout({
   
   const router = useRouter();
 
+  const componentsListForRoute = isDashboardRoute
+    ? componentsList.filter((component) => component.path !== "/cards/conversationCustomGame")
+    : componentsList;
+
   // FILTERING LOGIC
-  const filteredComponents = componentsList.filter(component => {
+  const filteredComponents = componentsListForRoute.filter(component => {
     const typeMatch = selectedType === 'All' || component.tags?.some(tag => 
       tag.toLowerCase() === selectedType.toLowerCase()
     );
@@ -858,7 +864,7 @@ export default function ClientLayout({
                   <option value="Life">Life</option>
                   <option value="Fantasy">Fantasy</option>
                   <option value="Test">Test</option>
-                  <option value="Game">Game</option>
+                  {!isDashboardRoute && <option value="Game">Game</option>}
                 </select>
               </div>
               
