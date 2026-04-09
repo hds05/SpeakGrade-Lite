@@ -158,6 +158,7 @@ export default function ParkingTicket(): React.JSX.Element {
   // Start conversation
   const startConversation = async (): Promise<void> => {
     unlockAudio();
+    setShowIntroPopup(false);
     setConversationStarted(true);
     setMicActive(false);
     setPhase("main");
@@ -530,7 +531,7 @@ export default function ParkingTicket(): React.JSX.Element {
                     className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
                     onClick={() => {
                       handleStopConversation(true);
-                      router.push("/");
+                      router.push("/dashboard");
                     }}
                   >
                     End Session
@@ -680,19 +681,19 @@ export default function ParkingTicket(): React.JSX.Element {
                     }
                     audioHelpSlot={<AudioTestStrip />}
                     controlsSlot={
-                      <div className="flex flex-wrap items-center justify-center gap-2">
+                      <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                         {micActive && <SoundWave speaking={listening} />}
                         <button
                           type="button"
                           onClick={handleMute}
-                          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                          className="relative z-10 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                         >
                           {micActive ? "Mute" : "Unmute"}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleStopConversation(false)}
-                          className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                          className="relative z-10 rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
                         >
                           Stop conversation
                         </button>

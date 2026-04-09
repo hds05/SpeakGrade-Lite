@@ -34,10 +34,55 @@ export default function InterviewRoom() {
   const [questionCount, setQuestionCount] = useState(0);
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const interviewTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const { transcript, listening, resetTranscript } = useSpeechRecognition();
+  const {
+    transcript,
+    interimTranscript,
+    finalTranscript,
+    listening,
+    resetTranscript,
+  } = useSpeechRecognition();
   const audioUnlockedRef = useRef(false);
+  /** State (not ref-only) so effects re-run when we open the mic after TTS. */
+  const [expectingUserUtterance, setExpectingUserUtterance] = useState(false);
+  const expectingUserUtteranceRef = useRef(false);
+  const interviewStartedRef = useRef(false);
+  const listeningRef = useRef(false);
+  const transcriptRef = useRef("");
+  const finalizeUtteranceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const processUserAnswerRef = useRef<(answer: string) => void | Promise<void>>(
+    () => {}
+  );
+
+  listeningRef.current = listening;
+  transcriptRef.current = transcript;
+
+  useEffect(() => {
+    interviewStartedRef.current = interviewStarted;
+  }, [interviewStarted]);
+
+  function enableListeningForUser() {
+    if (!interviewStartedRef.current) return;
+    expectingUserUtteranceRef.current = true;
+    setExpectingUserUtterance(true);
+    setMicActive(true);
+    try {
+      SpeechRecognition.startListening({ continuous: true });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function disableListeningForUser() {
+    expectingUserUtteranceRef.current = false;
+    setExpectingUserUtterance(false);
+    setMicActive(false);
+    SpeechRecognition.stopListening();
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1000);
@@ -68,20 +113,48 @@ export default function InterviewRoom() {
     return () => clearInterval(interval);
   }, [interviewStarted]);
 
+  // Continuous dictation often flips `listening` false briefly mid-sentence; debounce before committing.
+  const UTTERANCE_END_MS = 550;
   useEffect(() => {
-    console.log("🔍 useEffect triggered:", { interviewStarted, micActive, listening, transcript: transcript.substring(0, 50) });
-    if (!interviewStarted || !micActive) {
-      console.log("⚠️ Not processing: interviewStarted=", interviewStarted, "micActive=", micActive);
+    if (finalizeUtteranceTimerRef.current) {
+      clearTimeout(finalizeUtteranceTimerRef.current);
+      finalizeUtteranceTimerRef.current = null;
+    }
+
+    if (!interviewStarted || !expectingUserUtterance) {
       return;
     }
-    if (!listening && transcript.trim() && transcript.trim().length > 3) {
-      console.log("🎤 Processing user answer:", transcript);
-      processUserAnswer(transcript);
-      resetTranscript();
-    } else {
-      console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
+
+    if (listening) {
+      console.log("⏳ User speaking, transcript length:", transcript.length);
+      return;
     }
-  }, [listening, transcript, interviewStarted, micActive]);
+
+    const trimmed = transcript.trim();
+    if (trimmed.length <= 3) {
+      return;
+    }
+
+    console.log("🔍 Utterance pause — scheduling finalize in", UTTERANCE_END_MS, "ms");
+
+    finalizeUtteranceTimerRef.current = setTimeout(() => {
+      finalizeUtteranceTimerRef.current = null;
+      if (!expectingUserUtteranceRef.current || !interviewStartedRef.current) return;
+      if (listeningRef.current) return;
+      const text = transcriptRef.current.trim();
+      if (text.length <= 3) return;
+      console.log("🎤 Processing user answer (debounced):", text);
+      void processUserAnswerRef.current(text);
+      resetTranscript();
+    }, UTTERANCE_END_MS);
+
+    return () => {
+      if (finalizeUtteranceTimerRef.current) {
+        clearTimeout(finalizeUtteranceTimerRef.current);
+        finalizeUtteranceTimerRef.current = null;
+      }
+    };
+  }, [listening, transcript, interviewStarted, expectingUserUtterance, resetTranscript]);
 
   useEffect(() => {
     chatScrollRef.current?.scrollTo({
@@ -130,9 +203,9 @@ export default function InterviewRoom() {
   };
 
   const interviewers = [
-    { name: "Bob", image: "/avatars/interview-older-man.png" },
-    { name: "Charlie", image: "/avatars/interview-younger-woman.png" },
-    { name: "Alice", image: "/avatars/interview-older-woman.png" },
+    { name: "Adam", image: "/avatars/interview-older-man.png" },
+    { name: "Cassidy", image: "/avatars/interview-younger-woman.png" },
+    { name: "Stephanie", image: "/avatars/interview-older-woman.png" },
   ];
   const unlockAudio = () => {
     if (audioUnlockedRef.current) return;
@@ -159,7 +232,7 @@ export default function InterviewRoom() {
   //   unlockAudio();
   //   setInterviewStarted(true);
   //   setMicActive(false);
-  //   setIndex(0); // Start with Bob
+  //   setIndex(0); // Start with Adam
   //   await getInterviewerQuestion(interviewers[0].name);
   // };
   const startInterview = async () => {
@@ -173,29 +246,27 @@ export default function InterviewRoom() {
     // clear old data
     resetTranscript();        // ✅ clear previous transcript
     setHistory([]);           // ✅ clear previous conversation
-    setIndex(0); // Start with Bob
-    setSpeakingIndex(0);  // Highlight Bob immediately
+    setIndex(0); // Start with Adam
+    setSpeakingIndex(0);  // Highlight Adam immediately
     setInterviewStarted(true);
-    setMicActive(false);
+    interviewStartedRef.current = true;
+    setShowIntroPopup(false); // Dismiss overlay so UI buttons are clickable
+    disableListeningForUser();
     setTimeLeft(Initial_Time); // Reset timer to 30 seconds
     setFeedback(null); // Reset feedback
     setScore(0); // Reset score
     setMaxScore(0); // Reset max score
     setQuestionCount(0); // Reset question count
 
-    const bobIntro =
+    const adamIntro =
       "Hello and welcome to your interview. Can you please tell us about yourself?";
 
-    // Add Bob's intro to the conversation history
-    setHistory([{ role: "assistant", content: bobIntro, speaker: "Bob" }]);
+    // Add Adam's intro to the conversation history
+    setHistory([{ role: "assistant", content: adamIntro, speaker: "Adam" }]);
 
-    // Play Bob's intro voice
-    await playVoice(bobIntro, "Bob");
+    // Play Adam's intro voice
+    await playVoice(adamIntro, "Adam");
 
-    // Enable mic for user's first answer
-    setMicActive(true);
-    SpeechRecognition.startListening({ continuous: true });
-    
     console.log("🎤 Interview started, waiting for user response...");
 
     // ⏱️ Set time limit
@@ -215,6 +286,11 @@ export default function InterviewRoom() {
     console.log(`📝 User message:`, userMessage);
     console.log(`📚 Conversation history:`, history);
     
+    const historyForApi =
+      userMessage && userMessage.trim()
+        ? [...history, { role: "user", content: userMessage }]
+        : history;
+
     try {
       const res = await fetch("/api/interviewRoom/respond", {
         method: "POST",
@@ -222,8 +298,9 @@ export default function InterviewRoom() {
         body: JSON.stringify({
           currentSpeaker: speaker,
           userMessage: userMessage || "",
-          conversationHistory: history,
+          conversationHistory: historyForApi,
           timeLeft: timeLeft,
+          questionCount: questionCount,
         }),
       });
 
@@ -266,83 +343,86 @@ export default function InterviewRoom() {
           { role: "assistant", content: reply, speaker: actualSpeaker },
         ]);
         await playVoice(reply, actualSpeaker);
-        
-        // Enable mic for user's answer AFTER voice playback finishes
-        console.log("🎤 Re-enabling microphone for user response...");
-        setMicActive(true);
-        SpeechRecognition.startListening({ continuous: true });
       } else {
         console.warn("⚠️ No valid text to speak.");
-        
-        // Even if no voice, still enable mic for user
+
         console.log("🎤 Enabling microphone for user response (no voice to play)...");
-        setMicActive(true);
-        SpeechRecognition.startListening({ continuous: true });
+        enableListeningForUser();
       }
     } catch (err) {
       console.error(err);
+      if (interviewStartedRef.current) {
+        enableListeningForUser();
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Play audio from TTS
-// ================= playVoice =================
-const playVoice = async (text: string, speaker: string) => {
-  console.log(`🎵 Starting TTS for ${speaker}:`, text);
-  
-  // Stop mic while interviewer speaks
-  SpeechRecognition.stopListening();
-  setMicActive(false);
+  const playVoice = async (text: string, speaker: string) => {
+    console.log(`🎵 Starting TTS for ${speaker}:`, text);
 
-  // Stop any previous audio
-  if (currentAudioRef.current) {
-    currentAudioRef.current.pause();
-    currentAudioRef.current.src = "";
-    currentAudioRef.current = null;
-  }
+    disableListeningForUser();
 
-  // Highlight speaker immediately
-  const speakerIdx = interviewers.findIndex((p) => p.name === speaker);
-  setSpeakingIndex(speakerIdx);
-  console.log(`🎭 Highlighting speaker: ${speaker} at index ${speakerIdx}`);
-
-  try {
-    console.log(`📡 Calling TTS API for: ${speaker}`);
-    const controller = new AbortController();
-    const res = await fetch("/api/interviewRoom/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, speaker }),
-      signal: controller.signal,
-    });
-
-    console.log(`📡 TTS API response status:`, res.status);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`❌ TTS API error:`, errorText);
-      throw new Error(`TTS failed: ${res.status} ${errorText}`);
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.onpause = null;
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.src = "";
+      } catch {
+        /* ignore */
+      }
+      currentAudioRef.current = null;
     }
 
-    const blob = await res.blob();
-    console.log(`🎵 TTS blob size:`, blob.size, `bytes`);
-    
-    const url = URL.createObjectURL(blob);
-    await playAudioFromObjectUrl(url, currentAudioRef);
+    const speakerIdx = interviewers.findIndex((p) => p.name === speaker);
+    setSpeakingIndex(speakerIdx);
+    console.log(`🎭 Highlighting speaker: ${speaker} at index ${speakerIdx}`);
 
-    console.log(`✅ Finished speaking: ${speaker}`);
-    setSpeakingIndex(null);
+    try {
+      console.log(`📡 Calling TTS API for: ${speaker}`);
+      const res = await fetch("/api/interviewRoom/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, speaker }),
+      });
 
-    if (interviewStarted) {
-      setMicActive(true);
-      SpeechRecognition.startListening({ continuous: true });
+      console.log(`📡 TTS API response status:`, res.status);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`❌ TTS API error:`, errorText);
+        throw new Error(`TTS failed: ${res.status} ${errorText}`);
+      }
+
+      const blob = await res.blob();
+      console.log(`🎵 TTS blob size:`, blob.size, `bytes`);
+
+      if (blob.size < 100) {
+        console.error(
+          "❌ TTS blob inválido; revisa ELEVENLABS_API_KEY en .env.local"
+        );
+        throw new Error("Invalid TTS blob");
+      }
+
+      const url = URL.createObjectURL(blob);
+      await playAudioFromObjectUrl(url, currentAudioRef);
+      console.log(`✅ Finished speaking: ${speaker}`);
+      setSpeakingIndex(null);
+      if (interviewStartedRef.current) {
+        enableListeningForUser();
+      }
+    } catch (e) {
+      console.error(`❌ playVoice error for ${speaker}:`, e);
+      setSpeakingIndex(null);
+      if (interviewStartedRef.current) {
+        enableListeningForUser();
+      }
     }
-  } catch (e) {
-    console.error(`❌ playVoice error for ${speaker}:`, e);
-    setSpeakingIndex(null);
-  }
-};
+  };
 
   const handleNoAnswer = async () => {
     if (!interviewStarted) return; // ⛔ not started
@@ -350,8 +430,7 @@ const playVoice = async (text: string, speaker: string) => {
     if (!lastAssistant) return; // ⛔ no question asked yet
 
     console.log("🤐 User gave no response, interviewer will repeat.");
-    SpeechRecognition.stopListening();
-    setMicActive(false);
+    disableListeningForUser();
 
     const currentInterviewer = interviewers[index].name;
     const repeatPrompt =
@@ -363,9 +442,6 @@ const playVoice = async (text: string, speaker: string) => {
     ]);
 
     await playVoice(repeatPrompt, currentInterviewer);
-
-    setMicActive(true);
-    SpeechRecognition.startListening({ continuous: true });
   };
 
   // Handle user answer
@@ -373,8 +449,7 @@ const playVoice = async (text: string, speaker: string) => {
     console.log("🗣️ User answered:", answer);
     console.log("🎯 Current interviewer index:", index);
     
-    SpeechRecognition.stopListening();
-    setMicActive(false);
+    disableListeningForUser();
 
     setHistory((prev) => [...prev, { role: "user", content: answer }]);
 
@@ -388,14 +463,23 @@ const playVoice = async (text: string, speaker: string) => {
     await getInterviewerQuestion(interviewers[nextIndex].name, answer);
   };
 
-  // Mute mic manually
+  // Mute = stop mic; if we were capturing an answer, treat it as "done" (listening often stays true until stop).
   const handleMute = () => {
     if (micActive) {
-      SpeechRecognition.stopListening();
-      setMicActive(false);
+      if (finalizeUtteranceTimerRef.current) {
+        clearTimeout(finalizeUtteranceTimerRef.current);
+        finalizeUtteranceTimerRef.current = null;
+      }
+      const text = transcriptRef.current.trim();
+      if (expectingUserUtteranceRef.current && text.length > 3) {
+        console.log("🎤 Submitting answer via Mute:", text);
+        void processUserAnswerRef.current(text);
+        resetTranscript();
+      } else {
+        disableListeningForUser();
+      }
     } else {
-      SpeechRecognition.startListening({ continuous: true });
-      setMicActive(true);
+      enableListeningForUser();
     }
   };
 
@@ -404,6 +488,9 @@ const playVoice = async (text: string, speaker: string) => {
     SpeechRecognition.stopListening();
     resetTranscript();
 
+    expectingUserUtteranceRef.current = false;
+    setExpectingUserUtterance(false);
+    interviewStartedRef.current = false;
     setInterviewStarted(false);
     setMicActive(false);
     // Force full mic reset
@@ -446,6 +533,8 @@ const playVoice = async (text: string, speaker: string) => {
     }
 
   };
+
+  processUserAnswerRef.current = processUserAnswer;
 
   return (
       <div className="relative w-full min-h-screen  bg-gradient-to-b from-black/80 to-gray-400 text-white">
@@ -518,7 +607,7 @@ const playVoice = async (text: string, speaker: string) => {
                       className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
                       onClick={() => {
                         handleStopInterview(true); // ✅ stop mic + reset interview
-                        router.push("/");
+                        router.push("/dashboard");
                       }}
                     >
                       End Session
@@ -530,7 +619,7 @@ const playVoice = async (text: string, speaker: string) => {
             ) : (
               <>
                 {/* Intro Popup */}
-                {showIntroPopup && (
+                {showIntroPopup && !interviewStarted && (
                   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
                     <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 text-center">
                       <h2 className="text-xl text-gray-700 font-bold mb-4">
@@ -592,6 +681,7 @@ const playVoice = async (text: string, speaker: string) => {
                       </button>
                     </div>
                   ) : (
+                    <div className="relative z-[2] w-full">
                     <ScenarioChatLayout
                       chatScrollRef={chatScrollRef}
                       finalTranscript={finalTranscript}
@@ -649,19 +739,19 @@ const playVoice = async (text: string, speaker: string) => {
                       }
                       audioHelpSlot={<AudioTestStrip />}
                       controlsSlot={
-                        <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                           {micActive && <SoundWave speaking={listening} />}
                           <button
                             type="button"
                             onClick={handleMute}
-                            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                            className="relative z-10 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
                           >
                             {micActive ? "Mute" : "Unmute"}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleStopInterview(false)}
-                            className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                            className="relative z-10 rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
                           >
                             Stop interview
                           </button>
@@ -708,6 +798,7 @@ const playVoice = async (text: string, speaker: string) => {
                         );
                       })}
                     </ScenarioChatLayout>
+                    </div>
                   )}
                 </div>
               </>

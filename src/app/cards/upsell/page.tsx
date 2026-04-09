@@ -100,7 +100,7 @@ export default function UpsellPage(): React.JSX.Element {
   };
 
   const handleBackToDashboard = (): void => {
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (

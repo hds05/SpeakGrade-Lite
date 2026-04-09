@@ -403,7 +403,7 @@ export default function SpacecraftSimulation() {
     setPhase("intro");
     
     // Navigate home
-    router.push("/");
+    router.push("/dashboard");
   };
 
   const handleStartMission = () => {

@@ -38,10 +38,10 @@ export default function Emergency911() {
 
   // Helper function to check if error is meaningful
   const isEmptyError = (err: any): boolean => {
-    return !err || 
-           (typeof err === 'object' && Object.keys(err).length === 0) ||
-           err.toString() === '[object Object]' ||
-           err.toString() === '{}';
+    return !err ||
+      (typeof err === 'object' && Object.keys(err).length === 0) ||
+      err.toString() === '[object Object]' ||
+      err.toString() === '{}';
   };
 
   // Preprocess text for better TTS pronunciation
@@ -90,11 +90,11 @@ export default function Emergency911() {
       // This is a fresh completion, play the final message
       const finalMessage = "Help is on the way, they will arrive very soon";
       setAiReply(finalMessage);
-      
+
       // Mark that we've shown this completion to avoid replaying on refresh
       localStorage.setItem("Emergency911(easy)_Completed_Before", "true");
       finalMessagePlayingRef.current = true;
-      
+
       // Play final message after a short delay to ensure screen is shown
       setTimeout(async () => {
         try {
@@ -137,7 +137,7 @@ export default function Emergency911() {
       setQuestionCount(0);
       setMuted(true); // Start muted, will unmute after first AI response
       setShowCompletion(false); // Ensure completion screen is hidden
-      
+
       // Clear the completion marker for fresh final message
       localStorage.removeItem("Emergency911(easy)_Completed_Before");
       finalMessagePlayingRef.current = false;
@@ -152,7 +152,7 @@ export default function Emergency911() {
     setCallActive(false);
     SpeechRecognition.stopListening();
     resetTranscript();
-    
+
     // Only stop audio if we're not showing completion (final message might be playing)
     if (!showCompletion && currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -165,27 +165,27 @@ export default function Emergency911() {
   // 🕒 Timer 
   useEffect(() => {
     if (!callActive) return;
-  
+
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
           // Complete the call when time is up
-            handleCompletion();
+          handleCompletion();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  
+
     return () => clearInterval(interval);
   }, [callActive, questionCount]);
-  
+
 
   // ✅ Completion handler
   const handleCompletion = () => {
     console.log("✅ Emergency 911 completed. Stopping all audio and showing completion screen.");
-    
+
     // Stop any ongoing audio immediately
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -193,16 +193,16 @@ export default function Emergency911() {
       currentAudioRef.current.src = "";
       currentAudioRef.current = null;
     }
-    
+
     // Stop mic and processing
     setMuted(true);
     SpeechRecognition.stopListening();
     isProcessingRef.current = false;
     setCallActive(false);
-    
+
     // Mark scenario as completed
     localStorage.setItem("Emergency911(easy)_Completed", "true");
-    
+
     // Show completion screen immediately
     const completedBefore = localStorage.getItem("Emergency911(easy)_Completed") === "true";
     if (!completedBefore) {
@@ -223,7 +223,7 @@ export default function Emergency911() {
       conversationHistory: conversationHistory,
       feedback: `You completed the emergency 911 dispatcher simulation. You successfully practiced emergency communication during the ${INITIAL_TIME} second simulation.`,
     };
-    
+
     generatePDFReport(reportData);
   };
 
@@ -263,7 +263,7 @@ export default function Emergency911() {
       // Add timeout for API request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
-      
+
       const res = await fetch("/api/emergency911/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -277,7 +277,7 @@ export default function Emergency911() {
         }),
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       const data = await res.json();
@@ -286,10 +286,10 @@ export default function Emergency911() {
           ...prev,
           { role: "assistant", content: data.conversation.text, speaker: data.conversation.speaker },
         ]);
-        
+
         // Update question count
-          setQuestionCount(prev => prev + 1);
-        
+        setQuestionCount(prev => prev + 1);
+
         // Play the AI response - mic will be re-enabled in handleAiReply after audio finishes
         await handleAiReply(data.conversation.text);
       } else {
@@ -297,10 +297,10 @@ export default function Emergency911() {
         setTimeout(() => {
           if (callActive) {
             setMuted(false);
-            SpeechRecognition.startListening({ 
-              continuous: true, 
+            SpeechRecognition.startListening({
+              continuous: true,
               interimResults: false,
-              language: "en-US" 
+              language: "en-US"
             });
           }
         }, 2000);
@@ -314,10 +314,10 @@ export default function Emergency911() {
       setTimeout(() => {
         if (callActive) {
           setMuted(false);
-          SpeechRecognition.startListening({ 
-            continuous: true, 
+          SpeechRecognition.startListening({
+            continuous: true,
             interimResults: false,
-            language: "en-US" 
+            language: "en-US"
           });
         }
       }, 2000);
@@ -328,7 +328,7 @@ export default function Emergency911() {
 
   const handleAiReply = async (text: string) => {
     setAiReply(text);
-    
+
     // Stop any previous audio
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -336,23 +336,23 @@ export default function Emergency911() {
       currentAudioRef.current.src = "";
       currentAudioRef.current = null;
     }
-    
+
     try {
       // Preprocess text for better TTS pronunciation
       const processedText = preprocessTextForTTS(text);
       console.log("🗣️ TTS text processed:", text, "→", processedText);
-      
+
       // Add timeout for TTS request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+
       const res = await fetch("/api/emergency911/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: processedText }),
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -402,7 +402,7 @@ export default function Emergency911() {
   // Play final message without restarting mic
   const playFinalMessage = async (text: string): Promise<void> => {
     console.log("🔊 Playing final emergency message:", text);
-    
+
     // Ensure no other audio is playing
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -410,22 +410,22 @@ export default function Emergency911() {
       currentAudioRef.current.src = "";
       currentAudioRef.current = null;
     }
-    
+
     try {
       // Preprocess final message text for better TTS pronunciation
       const processedText = preprocessTextForTTS(text);
       console.log("🗣️ Final message TTS text processed:", text, "→", processedText);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       const res = await fetch("/api/emergency911/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: processedText }),
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -475,7 +475,7 @@ export default function Emergency911() {
     <div className="relative w-full min-h-screen  text-white bg-black">
       {/* Layer 2 - Enhanced modern background extension */}
       <div className="absolute inset-0 z-0 opacity-70 overflow-hidden">
-        <div 
+        <div
           className="w-full h-full bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: "url('/backgrounds/emergencyBg.png')",
@@ -502,20 +502,20 @@ export default function Emergency911() {
             <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-4">
               🎉 Emergency Call Completed!
             </h2>
-            
+
             {/* Simple completion message */}
             <div className="mb-6 p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
               <h3 className="text-xl font-semibold text-white mb-4">📞 Call Summary</h3>
-                <div className="text-center">
+              <div className="text-center">
                 <div className="text-lg text-gray-300 mb-4">
                   You successfully completed your emergency 911 call simulation.
-                  </div>
+                </div>
                 <div className="text-sm text-gray-400">
                   Questions exchanged: {questionCount}
                 </div>
                 <div className="text-sm text-gray-400">
                   Call duration: {INITIAL_TIME} seconds
-                  </div>
+                </div>
               </div>
             </div>
 
@@ -529,159 +529,158 @@ export default function Emergency911() {
               >
                 📄 Download Report
               </button>
-                                <button
-                    className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
-                    onClick={() => router.push("/")}
-                  >
-                    End Session
-                  </button>
+              <button
+                className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-violet-500 hover:text-white"
+                onClick={() => router.push("/dashboard")}
+              >
+                End Session
+              </button>
 
             </div>
           </div>
         </div>
       ) : (
-  <div className="relative min-h-screen overflow-hidden">
+        <div className="relative min-h-screen overflow-hidden">
 
-    
-    {/* 🚨 Animated siren overlay - above everything */}
-    <div className="absolute inset-0 z-[3] animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#4f46e5,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay pointer-events-none"></div>
-    
-    <div className="relative z-[2] flex flex-col items-center justify-center min-h-screen gap-8 text-white font-mono">
 
-    {/* 🚔 Floating content - no background */}
-    <div className="relative z-[4] max-w-2xl w-[90%] flex flex-col gap-6 items-center justify-center transition-all duration-500">
+          {/* 🚨 Animated siren overlay - above everything */}
+          <div className="absolute inset-0 z-[3] animate-backgroundPulse bg-[linear-gradient(270deg,_#dc2626,_#4f46e5,_#dc2626)] bg-[length:600%_600%] opacity-30 mix-blend-overlay pointer-events-none"></div>
 
-      {/* ⏱ Timer */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="text-md sm:text-3xl font-bold tracking-widest text-white"
-      >
-        ⏱ Time Left:{" "}
-        <span className={timeLeft < 10 ? "text-red-400 animate-pulse" : "text-green-400"}>
-          {timeLeft}s
-        </span>
-      </motion.div>
+          <div className="relative z-[2] flex flex-col items-center justify-center min-h-screen gap-8 text-white font-mono">
 
-      {/* 💬 AI Reply with Dispatcher Avatar */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="p-6 rounded-xl bg-gradient-to-br from-red-900/40 to-blue-900/40 backdrop-blur-sm border border-white/20 shadow-xl text-white w-full"
-      >
-        <div className="flex items-start gap-4">
-          {/* Dispatcher Avatar */}
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-red-400 bg-white shadow-md overflow-hidden">
-              <Image
-                src="/avatars/emergency-young-woman.png"
-                alt="911 Dispatcher"
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="text-xs text-center mt-1 text-red-300 font-semibold">
-              911 Dispatcher
-            </div>
-          </div>
-          
-          {/* Message Content */}
-          <div className="flex-1 text-left">
-            {aiReply ? (
-              <p className="text-lg font-medium leading-relaxed">{aiReply}</p>
-            ) : (
-              <p className="italic text-gray-300">Dispatcher is waiting...</p>
-            )}
-          </div>
-        </div>
-      </motion.div>
+            {/* 🚔 Floating content - no background */}
+            <div className="relative z-[4] max-w-2xl w-[90%] flex flex-col gap-6 items-center justify-center transition-all duration-500">
 
-      {/* 🎙️ Listening indicator */}
-      <div className="flex items-center gap-3 text-lg text-white">
-        <div
-          className={`w-4 h-4 rounded-full border-2 border-white ${
-            listening && !muted ? "bg-green-400 animate-ping" : "bg-red-600"
-          }`}
-        />
-        <span>🎙️ Microphone: {
-          currentAudioRef.current ? "🔊 AI Speaking" :
-          listening && !muted ? "✅ Listening" : "❌ Muted"
-        }</span>
-      </div>
-
-      {/* 📝 Transcript en vivo (mismo patrón que otros escenarios) */}
-      <div className="max-w-md rounded-xl border border-rose-500/35 bg-black/30 px-4 py-3 text-center text-sm text-white">
-        {listening && !muted && (finalTranscript || interimTranscript) ? (
-          <p>
-            <span>{finalTranscript}</span>
-            {interimTranscript ? <span className="italic text-rose-100/90"> {interimTranscript}</span> : null}
-          </p>
-        ) : transcript ? (
-          <p className="italic text-gray-200">&quot;{transcript}&quot;</p>
-        ) : currentAudioRef.current ? (
-          <p className="text-gray-300">AI is speaking, please wait…</p>
-        ) : muted ? (
-          <p className="text-gray-300">Waiting for dispatcher…</p>
-        ) : (
-          <p className="text-gray-300">You can speak now…</p>
-        )}
-      </div>
-
-      {/* Progress indicator */}
-      {callActive && (
-        <div className="text-center">
-          <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
-            Questions: {questionCount}
-          </div>
-          <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
-            Call in progress...
-          </div>
-        </div>
-      )}
-
-      <div className="w-full max-w-md">
-        <AudioTestStrip />
-      </div>
-
-      {/* 🔘 Buttons */}
-      <div className="flex w-full flex-wrap justify-center gap-4">
-        <button
-          onClick={toggleCall}
-          className="px-6 py-3 bg-gradient-to-br from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
-        >
-          {callActive ? "🚨 End Call" : "📞 Start Emergency Call"}
-        </button>
-
-        {callActive && (
-          <>
-            {!muted ? (
-              <button
-                onClick={handleMuteAndSend}
-                className="px-6 py-3 bg-gradient-to-br from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+              {/* ⏱ Timer */}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-md sm:text-3xl font-bold tracking-widest text-white"
               >
-                🔇 Mute & Send
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setMuted(false);
-                  SpeechRecognition.startListening({ continuous: true, language: "en-US" });
-                }}
-                className="px-6 py-3 bg-gradient-to-br from-green-600 to-green-800 hover:from-green-700 hover:to-green-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
-                disabled={currentAudioRef.current !== null}
-              >
-                🔊 Unmute
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  </div>
+                ⏱ Time Left:{" "}
+                <span className={timeLeft < 10 ? "text-red-400 animate-pulse" : "text-green-400"}>
+                  {timeLeft}s
+                </span>
+              </motion.div>
 
-  {/* 🌈 Add style inside your component */}
-  <style jsx>{`
+              {/* 💬 AI Reply with Dispatcher Avatar */}
+              <motion.div
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="p-6 rounded-xl bg-gradient-to-br from-red-900/40 to-blue-900/40 backdrop-blur-sm border border-white/20 shadow-xl text-white w-full"
+              >
+                <div className="flex items-start gap-4">
+                  {/* Dispatcher Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-red-400 bg-white shadow-md overflow-hidden">
+                      <Image
+                        src="/avatars/emergency-young-woman.png"
+                        alt="911 Dispatcher"
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-xs text-center mt-1 text-red-300 font-semibold">
+                      911 Dispatcher
+                    </div>
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="flex-1 text-left">
+                    {aiReply ? (
+                      <p className="text-lg font-medium leading-relaxed">{aiReply}</p>
+                    ) : (
+                      <p className="italic text-gray-300">Dispatcher is waiting...</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* 🎙️ Listening indicator */}
+              <div className="flex items-center gap-3 text-lg text-white">
+                <div
+                  className={`w-4 h-4 rounded-full border-2 border-white ${listening && !muted ? "bg-green-400 animate-ping" : "bg-red-600"
+                    }`}
+                />
+                <span>🎙️ Microphone: {
+                  currentAudioRef.current ? "🔊 AI Speaking" :
+                    listening && !muted ? "✅ Listening" : "❌ Muted"
+                }</span>
+              </div>
+
+              {/* 📝 Transcript en vivo (mismo patrón que otros escenarios) */}
+              <div className="max-w-md rounded-xl border border-rose-500/35 bg-black/30 px-4 py-3 text-center text-sm text-white">
+                {listening && !muted && (finalTranscript || interimTranscript) ? (
+                  <p>
+                    <span>{finalTranscript}</span>
+                    {interimTranscript ? <span className="italic text-rose-100/90"> {interimTranscript}</span> : null}
+                  </p>
+                ) : transcript ? (
+                  <p className="italic text-gray-200">&quot;{transcript}&quot;</p>
+                ) : currentAudioRef.current ? (
+                  <p className="text-gray-300">AI is speaking, please wait…</p>
+                ) : muted ? (
+                  <p className="text-gray-300">Waiting for dispatcher…</p>
+                ) : (
+                  <p className="text-gray-300">You can speak now…</p>
+                )}
+              </div>
+
+              {/* Progress indicator */}
+              {callActive && (
+                <div className="text-center">
+                  <div className="text-white text-sm bg-black/50 px-3 py-1 rounded-full mb-2">
+                    Questions: {questionCount}
+                  </div>
+                  <div className="text-white text-xs bg-blue-500/70 px-2 py-1 rounded-full">
+                    Call in progress...
+                  </div>
+                </div>
+              )}
+
+              <div className="w-full max-w-md">
+                <AudioTestStrip />
+              </div>
+
+              {/* 🔘 Buttons */}
+              <div className="flex w-full flex-wrap justify-center gap-4">
+                <button
+                  onClick={toggleCall}
+                  className="px-6 py-3 bg-gradient-to-br from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+                >
+                  {callActive ? "🚨 End Call" : "📞 Start Emergency Call"}
+                </button>
+
+                {callActive && (
+                  <>
+                    {!muted ? (
+                      <button
+                        onClick={handleMuteAndSend}
+                        className="px-6 py-3 bg-gradient-to-br from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+                      >
+                        🔇 Mute & Send
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setMuted(false);
+                          SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+                        }}
+                        className="px-6 py-3 bg-gradient-to-br from-green-600 to-green-800 hover:from-green-700 hover:to-green-900 text-white font-semibold rounded-xl shadow-md transition transform hover:scale-105 duration-300"
+                        disabled={currentAudioRef.current !== null}
+                      >
+                        🔊 Unmute
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 🌈 Add style inside your component */}
+          <style jsx>{`
     @keyframes backgroundPulse {
       0% {
         background-position: 0% 50%;
@@ -698,7 +697,7 @@ export default function Emergency911() {
       animation: backgroundPulse 6s ease-in-out infinite;
     }
   `}</style>
-  </div>
+        </div>
       )}
     </div>
   );

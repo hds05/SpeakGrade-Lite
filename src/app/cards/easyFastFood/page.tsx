@@ -448,6 +448,7 @@ export default function EasyFastFood() {
       )}
 
       {conversationStarted && !showCompletion && (
+        <div className="relative z-[2] w-full">
         <ScenarioChatLayout
           chatScrollRef={chatScrollRef}
           finalTranscript={finalTranscript}
@@ -508,18 +509,18 @@ export default function EasyFastFood() {
           }
           audioHelpSlot={<AudioTestStrip />}
           controlsSlot={
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={handleMute}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+                className="relative z-10 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
               >
                 {micActive ? "🔇 Mute" : "🎤 Unmute"}
               </button>
               <button
                 type="button"
                 onClick={handleStopConversation}
-                className="rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+                className="relative z-10 rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
               >
                 🛑 End order
               </button>
@@ -560,6 +561,7 @@ export default function EasyFastFood() {
             </div>
           ))}
         </ScenarioChatLayout>
+        </div>
       )}
 
       {/* Completion Screen */}
@@ -609,7 +611,7 @@ export default function EasyFastFood() {
                 📄 Download Report
               </button>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/dashboard")}
                 className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg border border-green-400/30"
               >
                 🏠 Back to Dashboard

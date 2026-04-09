@@ -115,6 +115,9 @@ export default function WeeklyCheck() {
   // Start conversation
   const startConversation = async () => {
     unlockAudio();
+    // Must match easyWeeklyManager: dismiss intro overlay whenever the scenario starts.
+    // Otherwise a focused "Start Check-in" (e.g. Enter key) can start the mic while the fixed z-[999] modal stays on top.
+    setShowIntroPopup(false);
     setConversationStarted(true);
     setMicActive(false);
     setPhase("main");
@@ -422,7 +425,7 @@ export default function WeeklyCheck() {
                   </button>
                   <button
                     className="px-6 py-3 bg-white text-black font-semibold rounded-full transition duration-300 shadow-lg hover:bg-blue-500 hover:text-white"
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/dashboard")}
                   >
                     End Session
                   </button>
@@ -472,7 +475,7 @@ export default function WeeklyCheck() {
                 </div>
               )}
 
-              <div className="relative w-full min-h-screen bg-gray-100">
+              <div className="relative z-10 w-full min-h-screen bg-gray-100">
                 <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
                   <div
                     className="w-full h-full bg-cover bg-center bg-no-repeat"
@@ -517,7 +520,7 @@ export default function WeeklyCheck() {
                     micActive={micActive}
                     headerSlot={
                       <div className="mx-auto flex w-full max-w-2xl shrink-0 flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
-                        <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                           <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-md">
                             Questions: {questionCount}/6
                           </span>
@@ -561,7 +564,7 @@ export default function WeeklyCheck() {
                     }
                     audioHelpSlot={<AudioTestStrip />}
                     controlsSlot={
-                      <div className="flex flex-wrap items-center justify-center gap-2">
+                      <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                         {micActive && <SoundWave speaking={listening} />}
                         <button
                           type="button"

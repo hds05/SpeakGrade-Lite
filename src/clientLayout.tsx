@@ -926,7 +926,7 @@ export default function ClientLayout({
                       onClick={() => handleCardClick(item.path)}
                     >
                       {/* Card frame - Clean design with special contrasting styling for English Guide Bot */}
-                      <div className={`rounded-3xl backdrop-blur-xl relative overflow-hidden transition-all duration-300 ${
+                      <div className={`rounded-3xl backdrop-blur-xl relative overflow-hidden transition-all duration-300 h-full ${
                         item.isLiveConversation
                           ? isDarkMode
                             ? 'bg-gradient-to-br from-red-950 to-red-900 ring-2 ring-amber-400/70 shadow-2xl shadow-amber-500/30 hover:ring-amber-300/90 hover:shadow-amber-400/40 border border-amber-500/40'
@@ -1174,7 +1174,7 @@ export default function ClientLayout({
                               ? 'bg-gradient-to-b from-transparent to-purple-50/30'
                               : ''
                         }`}>
-                          <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-2 relative ${
+                          <h3 className={`text-lg sm:text-2xl font-bold tracking-tight mb-2 relative ${
                             item.isLiveConversation && !isDarkMode 
                               ? 'text-white' 
                               : isDarkMode ? 'text-stone-200' : 'text-gray-900'

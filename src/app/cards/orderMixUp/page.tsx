@@ -1,278 +1,376 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import Confetti from "react-confetti";
 import { useRouter } from "next/navigation";
+import SpeechRecognition, {
+  useSpeechRecognition,
+} from "react-speech-recognition";
+import SoundWave from "@/app/components/soundWave/page";
+import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
+import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
+import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+
+const mike = {
+  name: "Mike",
+  title: "Cashier",
+  avatar: "/avatars/fastFood-young-man.png",
+};
 
 export default function OrderMixUp() {
-  const [phase, setPhase] = useState<string>("intro");
+  const [phase, setPhase] = useState<"intro" | "main">("intro");
   const [showIntroPopup, setShowIntroPopup] = useState(true);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
+  const [micActive, setMicActive] = useState(false);
   const [currentScore, setCurrentScore] = useState(0);
   const [questionCount, setQuestionCount] = useState(0);
   const [issuesResolved, setIssuesResolved] = useState<string[]>([]);
-  const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
+  const [conversationHistory, setConversationHistory] = useState<
+    Array<{ role: string; content: string }>
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [mikeSpeaking, setMikeSpeaking] = useState(false);
-  
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+
   const router = useRouter();
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const audioUnlockedRef = useRef(false);
+  const historyRef = useRef(conversationHistory);
+  const endingConversationRef = useRef(false);
 
-  // Order details for reference
-  const orderIssues = [
-    { id: "burger_onions", description: "Burger has onions (ordered NO onions)", resolved: false },
-    { id: "fries_size", description: "Got small fries (ordered medium)", resolved: false },
-    { id: "drink_type", description: "Got diet Coke (ordered regular)", resolved: false },
-    { id: "missing_rings", description: "Missing onion rings from coupon", resolved: false }
-  ];
+  const {
+    transcript,
+    interimTranscript,
+    finalTranscript,
+    listening,
+    resetTranscript,
+  } = useSpeechRecognition();
 
-  // Initialize speech recognition
+  historyRef.current = conversationHistory;
+
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          setTranscript(finalTranscript);
-          handleUserInput(finalTranscript);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      setRecognition(recognition);
+    if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
+      alert("Browser doesn't support speech recognition.");
     }
-
-    // Cleanup on component unmount
-    return () => {
-      if (recognition) {
-        recognition.stop();
-        if (recognition.abort) {
-          recognition.abort();
-        }
-      }
-    };
   }, []);
 
-  const startListening = () => {
-    if (recognition && !isListening) {
-      setIsListening(true);
-      recognition.start();
-    }
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [conversationHistory, interimTranscript, finalTranscript]);
+
+  const unlockAudio = () => {
+    if (audioUnlockedRef.current) return;
+    unlockWebAudioOnUserGesture();
+    audioUnlockedRef.current = true;
   };
 
-  const stopListening = () => {
-    if (recognition && isListening) {
-      recognition.stop();
-      setIsListening(false);
-    }
-  };
-
-  // Complete audio and microphone shutdown
-  const completeAudioShutdown = () => {
-    // Stop speech recognition completely
-    if (recognition) {
-      recognition.stop();
-      if (recognition.abort) {
-        recognition.abort(); // Force kill recognition session
-      }
-    }
-    setIsListening(false);
-    setMikeSpeaking(false);
-    setTranscript("");
-  };
-
-  const handleUserInput = async (userMessage: string) => {
-    if (isLoading || !userMessage.trim()) return;
-
-    setIsLoading(true);
-    stopListening();
-
-    const newHistory = [...conversationHistory, { role: "user", content: userMessage }];
-    setConversationHistory(newHistory);
-
+  const requestMicrophonePermission = async () => {
     try {
-      // Send to API
-      const response = await fetch('/api/orderMixUp/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          conversationHistory: newHistory,
-          currentScore,
-          questionCount,
-          issuesResolved
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to get response');
-
-      const data = await response.json();
-      
-      // Update conversation state
-      setConversationHistory([...newHistory, { role: "assistant", content: data.response }]);
-      setCurrentScore(data.score || currentScore);
-      setQuestionCount(data.questionCount || questionCount + 1);
-      setIssuesResolved(data.issuesResolved || issuesResolved);
-
-      // Play Mike's response
-      await playMikeResponse(data.response);
-
-      // Check if conversation should end
-      if (data.conversationComplete || data.issuesResolved?.length >= 4 || questionCount >= 9) {
-        setTimeout(() => {
-          completeAudioShutdown();
-          setShowCompletion(true);
-          saveScore();
-        }, 2000);
-      }
-
-    } catch (error) {
-      console.error('Error in conversation:', error);
-    } finally {
-      setIsLoading(false);
-      setTranscript("");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      return true;
+    } catch {
+      alert("Microphone permission is required. Please allow access and try again.");
+      return false;
     }
+  };
+
+  const completeAudioShutdown = () => {
+    SpeechRecognition.stopListening();
+    if (SpeechRecognition.abortListening) {
+      SpeechRecognition.abortListening();
+    }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.src = "";
+      currentAudioRef.current.load();
+      currentAudioRef.current = null;
+    }
+    setMicActive(false);
+    setSpeakingIndex(null);
+    resetTranscript();
   };
 
   const playMikeResponse = async (text: string) => {
+    SpeechRecognition.stopListening();
+    setMicActive(false);
     try {
-      setMikeSpeaking(true);
-      const response = await fetch('/api/orderMixUp/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+      setSpeakingIndex(0);
+      const response = await fetch("/api/orderMixUp/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
       });
 
       if (!response.ok) {
-        console.error('TTS failed:', await response.text());
+        console.error("TTS failed:", await response.text());
         return;
       }
 
       const audioBlob = await response.blob();
+      if (audioBlob.size < 100) {
+        console.error("TTS blob invalid; check ElevenLabs / API key");
+        return;
+      }
+
       const audioUrl = URL.createObjectURL(audioBlob);
-      await playAudioFromObjectUrl(audioUrl, ttsAudioRef);
-    } catch (error) {
-      console.error('Error playing audio:', error);
+      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+    } catch (e) {
+      console.error("Error playing audio:", e);
     } finally {
-      setMikeSpeaking(false);
+      setSpeakingIndex(null);
     }
   };
 
-  const saveScore = () => {
+  const saveScore = (scoreOverride?: number) => {
+    const scoreToSave = scoreOverride ?? currentScore;
     try {
       const scoreData = {
         cardId: "Order Mix-Up",
-        score: currentScore,
+        score: scoreToSave,
         maxScore: 100,
-        percentage: Math.round((currentScore / 100) * 100),
+        percentage: Math.round((scoreToSave / 100) * 100),
         completed: true,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
 
-      const existingScores = JSON.parse(localStorage.getItem('speakGrade_scores') || '[]');
-      const scoreIndex = existingScores.findIndex((s: any) => s.cardId === scoreData.cardId);
-      
+      const existingScores = JSON.parse(
+        localStorage.getItem("speakGrade_scores") || "[]"
+      );
+      const scoreIndex = existingScores.findIndex(
+        (s: { cardId: string }) => s.cardId === scoreData.cardId
+      );
+
       if (scoreIndex >= 0) {
         existingScores[scoreIndex] = scoreData;
       } else {
         existingScores.push(scoreData);
       }
 
-      localStorage.setItem('speakGrade_scores', JSON.stringify(existingScores));
-
-      // Dispatch event for score update
-      window.dispatchEvent(new CustomEvent('scoresUpdated', { 
-        detail: scoreData 
-      }));
+      localStorage.setItem("speakGrade_scores", JSON.stringify(existingScores));
+      window.dispatchEvent(
+        new CustomEvent("scoresUpdated", { detail: scoreData })
+      );
     } catch (error) {
-      console.error('Error saving score:', error);
+      console.error("Error saving score:", error);
     }
   };
 
-  const handleStart = () => {
-    unlockWebAudioOnUserGesture();
+  const handleUserInput = useCallback(
+    async (userMessage: string) => {
+      if (endingConversationRef.current || isLoading || !userMessage.trim())
+        return;
+
+      setIsLoading(true);
+      SpeechRecognition.stopListening();
+      setMicActive(false);
+
+      const prev = historyRef.current;
+      const newHistory = [...prev, { role: "user", content: userMessage }];
+      setConversationHistory(newHistory);
+
+      try {
+        const response = await fetch("/api/orderMixUp/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userMessage,
+            conversationHistory: newHistory,
+            currentScore,
+            questionCount,
+            issuesResolved,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to get response");
+
+        const data = await response.json();
+        const nextIssues = data.issuesResolved || issuesResolved;
+        const nextQ = data.questionCount ?? questionCount + 1;
+        const nextScore = data.score ?? currentScore;
+
+        setConversationHistory((h) => [
+          ...h,
+          { role: "assistant", content: data.response },
+        ]);
+        setCurrentScore(nextScore);
+        setQuestionCount(nextQ);
+        setIssuesResolved(nextIssues);
+
+        await playMikeResponse(data.response);
+
+        const done =
+          data.conversationComplete ||
+          nextIssues.length >= 4 ||
+          nextQ >= 9;
+
+        if (done) {
+          endingConversationRef.current = true;
+          SpeechRecognition.stopListening();
+          setMicActive(false);
+          setTimeout(() => {
+            completeAudioShutdown();
+            setShowCompletion(true);
+            saveScore(nextScore);
+          }, 2000);
+        } else {
+          setMicActive(true);
+          SpeechRecognition.startListening({
+            continuous: true,
+            interimResults: false,
+            language: "en-US",
+          });
+        }
+      } catch (error) {
+        console.error("Error in conversation:", error);
+        setMicActive(true);
+        SpeechRecognition.startListening({
+          continuous: true,
+          interimResults: false,
+          language: "en-US",
+        });
+      } finally {
+        setIsLoading(false);
+        resetTranscript();
+      }
+    },
+    [
+      isLoading,
+      currentScore,
+      questionCount,
+      issuesResolved,
+      resetTranscript,
+    ]
+  );
+
+  useEffect(() => {
+    if (
+      !conversationStarted ||
+      showCompletion ||
+      isLoading ||
+      endingConversationRef.current
+    )
+      return;
+    if (!listening && transcript.trim() && transcript.trim().length > 3) {
+      void handleUserInput(transcript);
+    }
+  }, [
+    listening,
+    transcript,
+    conversationStarted,
+    showCompletion,
+    isLoading,
+    handleUserInput,
+  ]);
+
+  const handleStart = async () => {
+    unlockAudio();
+    const ok = await requestMicrophonePermission();
+    if (!ok) return;
+
     setShowIntroPopup(false);
+    setConversationStarted(true);
     setPhase("main");
-    
-    // Start with Mike's greeting
+    resetTranscript();
+
     const greeting = "Hi there—what can I help you with today?";
     setConversationHistory([{ role: "assistant", content: greeting }]);
-    playMikeResponse(greeting);
+    await playMikeResponse(greeting);
+
+    setMicActive(true);
+    SpeechRecognition.startListening({
+      continuous: true,
+      interimResults: false,
+      language: "en-US",
+    });
+  };
+
+  const handleMute = () => {
+    if (micActive) {
+      SpeechRecognition.stopListening();
+      setMicActive(false);
+    } else {
+      SpeechRecognition.startListening({
+        continuous: true,
+        interimResults: false,
+        language: "en-US",
+      });
+      setMicActive(true);
+    }
+  };
+
+  const handleStopConversation = () => {
+    completeAudioShutdown();
+    setConversationStarted(false);
+    saveScore();
+    setShowCompletion(true);
   };
 
   if (showCompletion) {
     return (
-      <div className="relative z-10 w-full min-h-screen flex flex-col justify-center items-center text-center px-4 py-10 sm:py-20 bg-cover bg-center bg-no-repeat animate__animated animate__fadeInUp"
-           style={{
-             backgroundImage: "url('/backgrounds/fastFoodBg.png')",
-           }}>
-        {/* Dark overlay for better readability */}
-        <div className="absolute inset-0 bg-black/70 z-0"></div>
-        
-        {/* Confetti */}
-        <Confetti className="w-full h-full z-10" />
-        
-        {/* Content */}
-        <div className="relative z-20 max-w-4xl w-full px-4">
-          <h2 className="text-2xl sm:text-4xl font-bold text-green-400 mb-6">
-            🎉 Order Issue Resolved!
+      <div
+        className="relative z-10 flex min-h-screen w-full flex-col items-center justify-center bg-cover bg-center bg-no-repeat px-4 py-10 text-center sm:py-20 animate__animated animate__fadeInUp"
+        style={{
+          backgroundImage: "url('/backgrounds/fastFoodBg.png')",
+        }}
+      >
+        <div className="absolute inset-0 z-0 bg-black/70"></div>
+
+        <Confetti className="z-10 h-full w-full" />
+
+        <div className="relative z-20 w-full max-w-4xl px-4">
+          <h2 className="mb-6 text-2xl font-bold text-green-400 sm:text-4xl">
+            Order issue resolved
           </h2>
-          
-          {/* Score Grid - Standardized design */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-green-500/20 backdrop-blur-md rounded-xl p-6 border border-green-400/20">
-              <h3 className="text-2xl font-bold text-green-300 mb-2">Score</h3>
-              <p className="text-3xl font-bold text-white">{currentScore}/100</p>
+
+          <div className="mb-8 grid gap-6 md:grid-cols-3">
+            <div className="rounded-xl border border-green-400/20 bg-green-500/20 p-6 backdrop-blur-md">
+              <h3 className="mb-2 text-2xl font-bold text-green-300">Score</h3>
+              <p className="text-3xl font-bold text-white">
+                {currentScore}/100
+              </p>
             </div>
-            <div className="bg-blue-500/20 backdrop-blur-md rounded-xl p-6 border border-blue-400/20">
-              <h3 className="text-2xl font-bold text-blue-300 mb-2">Percentage</h3>
-              <p className="text-3xl font-bold text-white">{Math.round((currentScore/100) * 100)}%</p>
+            <div className="rounded-xl border border-blue-400/20 bg-blue-500/20 p-6 backdrop-blur-md">
+              <h3 className="mb-2 text-2xl font-bold text-blue-300">
+                Percentage
+              </h3>
+              <p className="text-3xl font-bold text-white">
+                {Math.round((currentScore / 100) * 100)}%
+              </p>
             </div>
-            <div className="bg-purple-500/20 backdrop-blur-md rounded-xl p-6 border border-purple-400/20">
-              <h3 className="text-2xl font-bold text-purple-300 mb-2">Issues Fixed</h3>
-              <p className="text-3xl font-bold text-white">{issuesResolved.length}/4</p>
+            <div className="rounded-xl border border-purple-400/20 bg-purple-500/20 p-6 backdrop-blur-md">
+              <h3 className="mb-2 text-2xl font-bold text-purple-300">
+                Issues fixed
+              </h3>
+              <p className="text-3xl font-bold text-white">
+                {issuesResolved.length}/4
+              </p>
             </div>
           </div>
 
-          {/* Feedback Display */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-8 border border-white/20">
-            <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
-            <p className="text-white text-sm leading-relaxed">
-              Great job handling the drive-thru mix-up professionally! You successfully addressed {issuesResolved.length} out of 4 order issues and demonstrated excellent customer service communication skills in a challenging situation.
+          <div className="mb-8 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
+            <h3 className="mb-4 text-xl font-semibold text-white">
+              Your performance
+            </h3>
+            <p className="text-sm leading-relaxed text-white">
+              Great job handling the drive-thru mix-up professionally. You
+              addressed {issuesResolved.length} out of 4 order issues.
             </p>
           </div>
 
-          {/* Action Button */}
           <div className="flex justify-center">
             <button
-              onClick={() => router.push("/")}
-              className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg border border-green-400/30"
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="rounded-xl border border-green-400/30 bg-gradient-to-r from-green-600 to-green-700 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:from-green-700 hover:to-green-800"
             >
-              🏠 Back to Dashboard
+              Back to Dashboard
             </button>
           </div>
         </div>
@@ -281,196 +379,181 @@ export default function OrderMixUp() {
   }
 
   return (
-    <div className="relative w-full min-h-screen bg-gradient-to-br from-orange-100 to-red-100 text-gray-800">
-      {/* Background */}
-      <div className="absolute inset-0 z-0 opacity-70 overflow-hidden">
-        <div 
-          className="w-full h-full bg-cover bg-center bg-no-repeat"
+    <div className="relative min-h-screen w-full bg-gray-100 text-gray-800">
+      <div className="absolute inset-0 z-[0] overflow-hidden opacity-70">
+        <div
+          className="h-full w-full bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: "url('/backgrounds/fastFoodBg.png')",
-            filter: 'blur(3px) brightness(1.1)',
-            transform: 'scale(1.1)'
+            filter: "blur(3px) brightness(1.1)",
+            transform: "scale(1.1)",
           }}
-        ></div>
+        />
       </div>
 
-      {/* Intro Popup */}
-      {showIntroPopup && (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-            <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">
-              🍔 Order Mix-Up at Burger Express
+      {showIntroPopup && phase === "intro" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="mx-4 w-full max-w-2xl rounded-2xl bg-white p-8 text-center shadow-2xl">
+            <h2 className="mb-4 text-3xl font-bold text-gray-800">
+              Order mix-up at Burger Express
             </h2>
-            
-            <div className="space-y-4 text-sm text-gray-700">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h3 className="font-semibold text-red-800 mb-2">🚨 Your Order is Wrong!</h3>
-                <ul className="text-xs space-y-1">
-                  <li>• Burger HAS onions (you ordered NO onions)</li>
-                  <li>• Got SMALL fries (you ordered medium)</li>
-                  <li>• Got DIET Coke (you ordered regular)</li>
-                  <li>• Missing onion rings from your coupon</li>
+            <div className="mb-6 space-y-4 text-left text-sm text-gray-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                <h3 className="mb-2 font-semibold text-red-800">
+                  Your order is wrong
+                </h3>
+                <ul className="space-y-1 text-xs">
+                  <li>Burger has onions (you ordered no onions)</li>
+                  <li>Small fries (you ordered medium)</li>
+                  <li>Diet Coke (you ordered regular)</li>
+                  <li>Missing onion rings from your coupon</li>
                 </ul>
               </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-800 mb-2">🎯 Your Goal</h3>
-                <ul className="text-xs space-y-1">
-                  <li>• Explain each problem clearly</li>
-                  <li>• Be specific about what is wrong</li>
-                  <li>• Show your receipt and coupon when asked</li>
-                  <li>• Get all 4 issues fixed professionally</li>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <h3 className="mb-2 font-semibold text-blue-800">Your goal</h3>
+                <ul className="space-y-1 text-xs">
+                  <li>Explain each problem clearly</li>
+                  <li>Be specific about what is wrong</li>
+                  <li>Show your receipt and coupon when asked</li>
+                  <li>Get all 4 issues fixed professionally</li>
                 </ul>
               </div>
             </div>
-            
             <button
-              onClick={handleStart}
-              className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-xl hover:scale-105 transition-all duration-300"
+              type="button"
+              onClick={() => void handleStart()}
+              className="bg-gradient-to-r from-orange-500 to-red-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105"
             >
-              Start Drive-Thru Conversation
+              Start drive-thru conversation
             </button>
           </div>
         </div>
       )}
 
-      {/* Main Game Interface */}
-      <div className="relative z-[2] flex flex-col items-center justify-center min-h-screen p-4">
-        
-        {/* Mike Avatar */}
-        <div className="absolute top-1/4 left-4 transform -translate-y-1/2 z-30">
-          <div className="flex flex-col items-center">
-            <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 bg-white shadow-lg overflow-hidden transition-all duration-300 ${
-              mikeSpeaking ? 'border-orange-400 scale-110' : 'border-blue-400'
-            }`}>
-              <Image
-                src="/avatars/fastFood-young-man.png"
-                alt="Mike - Cashier"
-                width={160}
-                height={160}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <span className="mt-2 text-lg font-medium text-white bg-orange-600 rounded-full px-4 py-2 ring-2 ring-white">
-              Mike - Cashier
-            </span>
-          </div>
-        </div>
-
-        {/* User Avatar */}
-        <div className="absolute top-1/4 right-4 transform -translate-y-1/2 z-30">
-          <div className="flex flex-col items-center">
-            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-green-400 bg-white shadow-lg overflow-hidden">
-              <Image
-                src="/avatars/user-avatar.png"
-                alt="You"
-                width={160}
-                height={160}
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <span className="mt-2 text-lg font-medium text-white bg-green-600 rounded-full px-4 py-2 ring-2 ring-white">
-              You (Customer)
-            </span>
-          </div>
-        </div>
-
-        {/* Status Display */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-6 text-sm">
-            <div className="text-center">
-              <div className="text-xl font-bold text-orange-600">{currentScore}/100</div>
-              <div className="text-gray-600">Score</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-blue-600">{questionCount}/10</div>
-              <div className="text-gray-600">Questions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-green-600">{issuesResolved.length}/4</div>
-              <div className="text-gray-600">Issues Fixed</div>
-            </div>
-          </div>
-        </div>
-
-        {!showIntroPopup && (
-          <div className="absolute left-1/2 top-[52%] z-[25] flex w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 px-3">
-            <div className="max-h-[min(42vh,22rem)] w-full overflow-y-auto rounded-2xl border-2 border-rose-500/45 bg-white/10 p-3 shadow-lg backdrop-blur-md">
-              <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-rose-200/90">
-                Conversation
-              </p>
-              <div className="flex flex-col gap-3">
-                {conversationHistory.map((message, idx) => (
-                  <div
-                    key={idx}
-                    className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
-                      message.role === "assistant"
-                        ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
-                        : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
-                      {message.role === "assistant" && (
-                        <Image
-                          src="/avatars/fastFood-young-man.png"
-                          alt="Mike"
-                          width={28}
-                          height={28}
-                          className="shrink-0 rounded-full"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1 text-center">
-                        <p className="mb-1 text-xs font-semibold opacity-90">
-                          {message.role === "assistant" ? "Mike" : "You"}
-                        </p>
-                        <p className="text-sm leading-relaxed sm:text-[15px]">{message.content}</p>
-                      </div>
-                      {message.role === "user" && (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
-                          You
+      {conversationStarted && !showCompletion && (
+        <div className="relative z-[2] w-full">
+          <ScenarioChatLayout
+            chatScrollRef={chatScrollRef}
+            finalTranscript={finalTranscript}
+            interimTranscript={interimTranscript}
+            listening={listening}
+            micActive={micActive}
+            headerSlot={
+              <div className="mx-auto w-full max-w-2xl shrink-0 space-y-3">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                    Score: {currentScore}/100
+                  </span>
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md sm:text-sm">
+                    Q: {questionCount}/10
+                  </span>
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-green-300 backdrop-blur-md sm:text-sm">
+                    Issues: {issuesResolved.length}/4
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                      <Image
+                        src={mike.avatar}
+                        alt={mike.name}
+                        width={64}
+                        height={64}
+                        className={`h-full w-full rounded-full object-cover ring-2 ${
+                          speakingIndex === 0
+                            ? "animate-pulse ring-orange-400"
+                            : "ring-white/40"
+                        } transition-all`}
+                      />
+                      {speakingIndex === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <SoundWave speaking={true} />
                         </div>
                       )}
                     </div>
+                    <div className="text-left">
+                      <h3 className="text-base font-bold text-white sm:text-lg">
+                        {mike.name}
+                      </h3>
+                      <p className="text-xs text-blue-200 sm:text-sm">
+                        {mike.title}
+                      </p>
+                    </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-            <AudioTestStrip />
-          </div>
-        )}
-
-        {/* Microphone Control */}
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30">
-          <button
-            onClick={isListening ? stopListening : startListening}
-            disabled={isLoading || showCompletion}
-            className={`w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg transition-all duration-300 ${
-              isListening 
-                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-                : 'bg-blue-500 hover:bg-blue-600 hover:scale-110'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            }
+            hintText={
+              micActive
+                ? "Speak naturally — your words appear above in real time."
+                : "Unmute the microphone to speak."
+            }
+            audioHelpSlot={<AudioTestStrip />}
+            controlsSlot={
+              <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
+                {micActive && <SoundWave speaking={listening} />}
+                <button
+                  type="button"
+                  onClick={handleMute}
+                  disabled={isLoading}
+                  className="relative z-10 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {micActive ? "Mute" : "Unmute"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStopConversation}
+                  disabled={isLoading}
+                  className="relative z-10 rounded-lg bg-rose-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+                >
+                  End conversation
+                </button>
+              </div>
+            }
           >
-            {isLoading ? '⏳' : isListening ? '🔴' : '🎤'}
-          </button>
-          <p className="text-center mt-2 text-sm font-medium text-gray-700">
-            {isLoading ? 'Processing...' : isListening ? 'Listening...' : 'Tap to Speak'}
-          </p>
+            {conversationHistory.map((message, idx) => (
+              <div
+                key={idx}
+                className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 text-center shadow-sm ${
+                  message.role === "assistant"
+                    ? "bg-blue-600/35 text-white ring-1 ring-blue-400/25"
+                    : "bg-emerald-600/35 text-white ring-1 ring-emerald-400/25"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+                  {message.role === "assistant" && (
+                    <Image
+                      src={mike.avatar}
+                      alt={mike.name}
+                      width={28}
+                      height={28}
+                      className="shrink-0 rounded-full"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 text-center">
+                    <p className="mb-1 text-xs font-semibold opacity-90">
+                      {message.role === "assistant" ? mike.name : "You"}
+                    </p>
+                    <p className="text-sm leading-relaxed sm:text-[15px]">
+                      {message.content}
+                    </p>
+                  </div>
+                  {message.role === "user" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
+                      You
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </ScenarioChatLayout>
         </div>
+      )}
 
-        {/* Transcript Display */}
-        {transcript && (
-          <div className="absolute bottom-48 left-1/2 transform -translate-x-1/2 z-30 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg max-w-md">
-            <p className="text-sm text-gray-700">{transcript}</p>
-          </div>
-        )}
-
-      </div>
-
-      {/* Footer */}
-      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-20">
-        <div className="text-xs text-gray-600 font-light tracking-wide">
+      <div className="absolute bottom-2 left-1/2 z-20 -translate-x-1/2 transform">
+        <p className="text-xs font-light tracking-wide text-gray-600">
           speakgrade © 2025 B&B Global. All rights reserved.
-        </div>
+        </p>
       </div>
     </div>
   );
