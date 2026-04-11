@@ -9,7 +9,10 @@ import { Stars, OrbitControls } from "@react-three/drei";
 import SoundWave from "@/app/components/soundWave/page";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import {
+  cancelBrowserSpeech,
+  playTtsAudioOrBrowser,
+} from "@/utils/playTtsWithBrowserFallback";
 import Confetti from "react-confetti";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -83,6 +86,7 @@ export default function SpacecraftSimulation() {
   // Cleanup effect to prevent audio AbortError
   useEffect(() => {
     return () => {
+      cancelBrowserSpeech();
       // Clean up audio when component unmounts
       if (currentAudioRef.current) {
         try {
@@ -121,6 +125,7 @@ export default function SpacecraftSimulation() {
     setShowCompletion(true);
     setMissionStatus(status);
     
+    cancelBrowserSpeech();
     // Stop all speech recognition and audio
     if (listening) {
       SpeechRecognition.stopListening();
@@ -206,6 +211,7 @@ export default function SpacecraftSimulation() {
   const playJarvisVoice = async (text: string) => {
     try {
       setJarvisSpeaking(true);
+      cancelBrowserSpeech();
 
       if (currentAudioRef.current) {
         try {
@@ -220,20 +226,13 @@ export default function SpacecraftSimulation() {
         }
       }
 
-      const response = await fetch("/api/SpacecraftSimulation/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, speaker: "Jarvis" }),
-      });
-
-      if (!response.ok) {
-        console.error("TTS failed:", await response.text());
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/SpacecraftSimulation/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, speaker: "Jarvis" }),
+        })
+      );
     } catch (error) {
       console.error("TTS error:", error);
     } finally {

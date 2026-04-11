@@ -12,7 +12,10 @@ import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { scoreInterviewResponse } from "@/app/utils/scoringUtils";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import {
+  cancelBrowserSpeech,
+  playTtsAudioOrBrowser,
+} from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -31,6 +34,7 @@ export default function BasicInterviewRoom() {
   const [maxScore, setMaxScore] = useState(20); // Max 20 points for easy interview
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mountedRef = useRef(true);
 
   const {
     transcript,
@@ -73,6 +77,63 @@ export default function BasicInterviewRoom() {
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
+  }, []);
+
+  /** Stops TTS, speech recognition, and mic state (also used on unmount). */
+  const completeAudioShutdown = useCallback(() => {
+    cancelBrowserSpeech();
+    try {
+      SpeechRecognition.stopListening();
+      if (SpeechRecognition.abortListening) {
+        SpeechRecognition.abortListening();
+      }
+    } catch {
+      /* ignore */
+    }
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+        currentAudioRef.current.load();
+      } catch {
+        /* ignore */
+      }
+      currentAudioRef.current = null;
+    }
+    setSpeakingIndex(null);
+    setMicActive(false);
+    resetTranscript();
+  }, [resetTranscript]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cancelBrowserSpeech();
+      try {
+        SpeechRecognition.stopListening();
+        if (SpeechRecognition.abortListening) {
+          SpeechRecognition.abortListening();
+        }
+      } catch {
+        /* ignore */
+      }
+      const a = currentAudioRef.current;
+      if (a) {
+        try {
+          a.onended = null;
+          a.onerror = null;
+          a.pause();
+          a.src = "";
+          a.load();
+        } catch {
+          /* ignore */
+        }
+        currentAudioRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -241,36 +302,35 @@ export default function BasicInterviewRoom() {
     // Stop mic while interviewer speaks
     SpeechRecognition.stopListening();
     setMicActive(false);
+
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.src = "";
+      } catch {
+        /* ignore */
+      }
+      currentAudioRef.current = null;
+    }
     
     try {
       setSpeakingIndex(0);
-      
-      const res = await fetch("/api/basicInterviewRoom/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: "nova" }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error(`❌ TTS API error:`, res.status, errText);
-        setSpeakingIndex(null);
-        return;
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/basicInterviewRoom/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: "nova" }),
+        })
+      );
+      if (mountedRef.current) {
+        console.log(`✅ Audio finished for ${speaker}`);
       }
-
-      const audioBlob = await res.blob();
-      if (audioBlob.size < 100) {
-        console.error("❌ TTS blob inválido; revisa OPENAI_API_KEY en .env.local");
-        setSpeakingIndex(null);
-        return;
-      }
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
-      console.log(`✅ Audio finished for ${speaker}`);
-      setSpeakingIndex(null);
     } catch (error) {
       console.error(`❌ playVoice error for ${speaker}:`, error);
+    } finally {
       setSpeakingIndex(null);
     }
   };
@@ -294,13 +354,14 @@ export default function BasicInterviewRoom() {
 
   // Stop interview
   const handleStopInterview = () => {
-    SpeechRecognition.stopListening();
+    completeAudioShutdown();
     setInterviewStarted(false);
-    setMicActive(false);
     endInterview();
   };
 
   const endInterview = async () => {
+    completeAudioShutdown();
+    setInterviewStarted(false);
     setPhase("completed");
     
     // Calculate score based on participation (simple scoring for easy level)

@@ -11,7 +11,7 @@ import SpeechRecognition, {
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -219,31 +219,17 @@ export default function OutletCustomer() {
   const playVoice = async (text: string, speaker: string) => {
     setSpeakingIndex(0);
     try {
-      const res = await fetch("/api/outletCustomer/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, speaker }),
-      });
-
-      if (!res.ok) {
-        console.error("TTS failed:", await res.text());
-        setSpeakingIndex(null);
-        return;
-      }
-
-      const blob = await res.blob();
-      if (blob.size < 100) {
-        console.error("TTS inválido; revisa ELEVENLABS_API_KEY");
-        setSpeakingIndex(null);
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      await playAudioFromObjectUrl(url, currentAudioRef);
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/outletCustomer/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, speaker }),
+        })
+      );
       console.log(`✅ Finished speaking: ${speaker}`);
-      setSpeakingIndex(null);
     } catch (e) {
       console.error("playVoice error:", e);
+    } finally {
       setSpeakingIndex(null);
     }
   };

@@ -11,7 +11,7 @@ import SpeechRecognition, {
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -59,6 +59,30 @@ export default function EasyParkingTicket() {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
       console.warn("Browser doesn't support speech recognition.");
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      try {
+        SpeechRecognition.stopListening();
+        if (SpeechRecognition.abortListening) {
+          SpeechRecognition.abortListening();
+        }
+      } catch {
+        /* ignore */
+      }
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.pause();
+          currentAudioRef.current.src = "";
+          currentAudioRef.current.load();
+        } catch {
+          /* ignore */
+        }
+        currentAudioRef.current = null;
+      }
+    };
   }, []);
 
   // Handle user response automatically
@@ -255,33 +279,17 @@ export default function EasyParkingTicket() {
     
     try {
       setSpeakingIndex(0);
-      
-      const res = await fetch("/api/easyParkingTicket/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: officer.voice }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error(`❌ TTS API error:`, res.status, errText);
-        setSpeakingIndex(null);
-        return;
-      }
-
-      const audioBlob = await res.blob();
-      if (audioBlob.size < 100) {
-        console.error("❌ TTS blob inválido; revisa OPENAI_API_KEY en .env.local");
-        setSpeakingIndex(null);
-        return;
-      }
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/easyParkingTicket/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: officer.voice }),
+        })
+      );
       console.log(`✅ Audio finished for ${speaker}`);
-      setSpeakingIndex(null);
     } catch (error) {
       console.error(`❌ playVoice error for ${speaker}:`, error);
+    } finally {
       setSpeakingIndex(null);
     }
   };
@@ -304,6 +312,7 @@ export default function EasyParkingTicket() {
 
   // Complete audio and microphone shutdown
   const completeAudioShutdown = () => {
+    cancelBrowserSpeech();
     // Stop speech recognition completely
     SpeechRecognition.stopListening();
     if (SpeechRecognition.abortListening) {

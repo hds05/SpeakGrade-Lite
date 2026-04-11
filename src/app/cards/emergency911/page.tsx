@@ -10,7 +10,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import {
+  cancelBrowserSpeech,
+  playTtsAudioOrBrowser,
+} from "@/utils/playTtsWithBrowserFallback";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
 export default function Emergency911() {
@@ -111,6 +114,7 @@ export default function Emergency911() {
   // 🔊 Start/Stop call
   const toggleCall = async () => {
     if (callActive) {
+      cancelBrowserSpeech();
       // Manual end call - stop everything immediately
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
@@ -153,6 +157,9 @@ export default function Emergency911() {
     SpeechRecognition.stopListening();
     resetTranscript();
 
+    if (!showCompletion) {
+      cancelBrowserSpeech();
+    }
     // Only stop audio if we're not showing completion (final message might be playing)
     if (!showCompletion && currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -186,6 +193,7 @@ export default function Emergency911() {
   const handleCompletion = () => {
     console.log("✅ Emergency 911 completed. Stopping all audio and showing completion screen.");
 
+    cancelBrowserSpeech();
     // Stop any ongoing audio immediately
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -329,6 +337,7 @@ export default function Emergency911() {
   const handleAiReply = async (text: string) => {
     setAiReply(text);
 
+    cancelBrowserSpeech();
     // Stop any previous audio
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -338,37 +347,24 @@ export default function Emergency911() {
     }
 
     try {
-      // Preprocess text for better TTS pronunciation
       const processedText = preprocessTextForTTS(text);
       console.log("🗣️ TTS text processed:", text, "→", processedText);
 
-      // Add timeout for TTS request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      const res = await fetch("/api/emergency911/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: processedText }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`TTS failed: ${res.status}`);
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
-        await playAudioFromObjectUrl(url, currentAudioRef);
+        await playTtsAudioOrBrowser(processedText, currentAudioRef, () =>
+          fetch("/api/emergency911/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: processedText }),
+            signal: controller.signal,
+          })
+        );
         console.log("🔊 AI finished speaking, will restart mic after delay");
-      } catch (e) {
-        if (!isEmptyError(e)) {
-          console.error("Audio play failed:", e);
-        }
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       setTimeout(() => {
@@ -403,6 +399,7 @@ export default function Emergency911() {
   const playFinalMessage = async (text: string): Promise<void> => {
     console.log("🔊 Playing final emergency message:", text);
 
+    cancelBrowserSpeech();
     // Ensure no other audio is playing
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
@@ -412,35 +409,24 @@ export default function Emergency911() {
     }
 
     try {
-      // Preprocess final message text for better TTS pronunciation
       const processedText = preprocessTextForTTS(text);
       console.log("🗣️ Final message TTS text processed:", text, "→", processedText);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const res = await fetch("/api/emergency911/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: processedText }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`Final TTS failed: ${res.status}`);
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
       try {
-        await playAudioFromObjectUrl(url, currentAudioRef);
+        await playTtsAudioOrBrowser(processedText, currentAudioRef, () =>
+          fetch("/api/emergency911/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: processedText }),
+            signal: controller.signal,
+          })
+        );
         console.log("✅ Final emergency message completed");
-      } catch (e) {
-        if (!isEmptyError(e)) {
-          console.error("Final message play failed:", e);
-        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (err) {
       // Only log meaningful errors for final message

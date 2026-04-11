@@ -9,7 +9,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import SoundWave from "@/app/components/soundWave/page";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -58,6 +58,31 @@ export default function OrderMixUp() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      cancelBrowserSpeech();
+      try {
+        SpeechRecognition.stopListening();
+        if (SpeechRecognition.abortListening) {
+          SpeechRecognition.abortListening();
+        }
+      } catch {
+        /* ignore */
+      }
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.pause();
+          currentAudioRef.current.src = "";
+          currentAudioRef.current.load();
+        } catch {
+          /* ignore */
+        }
+        currentAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const el = chatScrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -81,6 +106,7 @@ export default function OrderMixUp() {
   };
 
   const completeAudioShutdown = () => {
+    cancelBrowserSpeech();
     SpeechRecognition.stopListening();
     if (SpeechRecognition.abortListening) {
       SpeechRecognition.abortListening();
@@ -102,25 +128,13 @@ export default function OrderMixUp() {
     setMicActive(false);
     try {
       setSpeakingIndex(0);
-      const response = await fetch("/api/orderMixUp/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        console.error("TTS failed:", await response.text());
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      if (audioBlob.size < 100) {
-        console.error("TTS blob invalid; check ElevenLabs / API key");
-        return;
-      }
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      await playAudioFromObjectUrl(audioUrl, currentAudioRef);
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/orderMixUp/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        })
+      );
     } catch (e) {
       console.error("Error playing audio:", e);
     } finally {

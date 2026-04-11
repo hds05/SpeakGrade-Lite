@@ -12,7 +12,10 @@ import { generatePDFReport } from "@/app/utils/pdfGenerator";
 import { saveScenarioScore } from "@/utils/scoreManager";
 import { saveCardScore } from "@/app/utils/scoringUtils";
 import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
-import { playAudioFromObjectUrl } from "@/utils/playAudioFromUrl";
+import {
+  cancelBrowserSpeech,
+  playTtsAudioOrBrowser,
+} from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 
@@ -93,6 +96,36 @@ export default function InterviewRoom() {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
       alert("Browser doesn't support speech recognition.");
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelBrowserSpeech();
+      try {
+        SpeechRecognition.stopListening();
+        if (SpeechRecognition.abortListening) {
+          SpeechRecognition.abortListening();
+        }
+      } catch {
+        /* ignore */
+      }
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.onended = null;
+          currentAudioRef.current.onerror = null;
+          currentAudioRef.current.pause();
+          currentAudioRef.current.src = "";
+          currentAudioRef.current.load();
+        } catch {
+          /* ignore */
+        }
+        currentAudioRef.current = null;
+      }
+      if (interviewTimerRef.current) {
+        clearTimeout(interviewTimerRef.current);
+        interviewTimerRef.current = null;
+      }
+    };
   }, []);
 
   // Timer countdown effect
@@ -384,32 +417,13 @@ export default function InterviewRoom() {
 
     try {
       console.log(`📡 Calling TTS API for: ${speaker}`);
-      const res = await fetch("/api/interviewRoom/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, speaker }),
-      });
-
-      console.log(`📡 TTS API response status:`, res.status);
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`❌ TTS API error:`, errorText);
-        throw new Error(`TTS failed: ${res.status} ${errorText}`);
-      }
-
-      const blob = await res.blob();
-      console.log(`🎵 TTS blob size:`, blob.size, `bytes`);
-
-      if (blob.size < 100) {
-        console.error(
-          "❌ TTS blob inválido; revisa ELEVENLABS_API_KEY en .env.local"
-        );
-        throw new Error("Invalid TTS blob");
-      }
-
-      const url = URL.createObjectURL(blob);
-      await playAudioFromObjectUrl(url, currentAudioRef);
+      await playTtsAudioOrBrowser(text, currentAudioRef, () =>
+        fetch("/api/interviewRoom/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, speaker }),
+        })
+      );
       console.log(`✅ Finished speaking: ${speaker}`);
       setSpeakingIndex(null);
       if (interviewStartedRef.current) {
@@ -485,6 +499,7 @@ export default function InterviewRoom() {
 
   // Stop entire interview
   const handleStopInterview = (isTimeUp: boolean = false) => {
+    cancelBrowserSpeech();
     SpeechRecognition.stopListening();
     resetTranscript();
 
