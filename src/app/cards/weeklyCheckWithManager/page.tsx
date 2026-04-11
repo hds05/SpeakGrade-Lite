@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 interface Message {
   role: "user" | "assistant";
@@ -419,45 +420,45 @@ export default function WeeklyCheck() {
             </div>
           ) : (
             <>
-              {/* Intro Popup */}
-              {showIntroPopup && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
-                  <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 text-center max-h-[90vh] overflow-y-auto">
-                    <h2 className="text-xl text-gray-700 font-bold mb-4">
-                      💼 Weekly Check-in with Your Manager
-                    </h2>
-                    <div className="text-left mb-6">
-                      <h3 className="font-semibold text-gray-800 mb-2">📋 Your Role:</h3>
-                      <p className="text-gray-700 text-sm mb-4">
-                        You are a marketing employee. Your manager wants to discuss your weekly update.
+              <ScenarioWelcomeModal
+                open={showIntroPopup && !conversationStarted}
+                overlayClassName="z-[999]"
+                imageSrc="/cards/weekly-manager.png"
+                imageAlt="Weekly manager check-in"
+                title="Weekly Check-in with Your Manager"
+                description={
+                  <>
+                    This is a weekly check-in with your manager {manager.name}. You will discuss
+                    your work using the weekly update below—answer follow-up questions clearly and
+                    professionally.
+                  </>
+                }
+                contextSlot={
+                  <div className="space-y-4 text-sm text-gray-700">
+                    <div>
+                      <h3 className="mb-2 font-semibold text-gray-800">Your role</h3>
+                      <p>
+                        You are a marketing employee. Your manager wants to go through your weekly
+                        update.
                       </p>
-                      
-                      <h3 className="font-semibold text-gray-800 mb-2">📝 Your Weekly Update:</h3>
-                      <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-700 mb-4">
+                    </div>
+                    <div>
+                      <h3 className="mb-2 font-semibold text-gray-800">Your weekly update</h3>
+                      <div className="rounded-lg bg-gray-100 p-4 text-gray-800">
                         {weeklyUpdateParagraph}
                       </div>
-                      
-                      <h3 className="font-semibold text-gray-800 mb-2">🎯 Instructions:</h3>
-                      <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                        <li>Read and remember the details from your weekly update above</li>
-                        <li>Answer your manager's questions based on this information</li>
-                        <li>Your manager will ask follow-up questions about your work</li>
-                        <li>Be professional but natural in your responses</li>
-                      </ul>
                     </div>
-                    
-                    <button
-                      onClick={() => {
-                        setShowIntroPopup(false);
-                        setPhase("main");
-                      }}
-                      className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 mr-4"
-                    >
-                      I'm Ready
-                    </button>
                   </div>
-                </div>
-              )}
+                }
+                bulletPoints={[
+                  "Read and remember the details from your weekly update",
+                  "Answer your manager's questions based on that information",
+                  "Expect follow-up questions about your work",
+                  "Be professional and natural in your responses",
+                ]}
+                ctaLabel="Start Check-in"
+                onStart={startConversation}
+              />
 
               <div className="relative z-10 w-full min-h-screen bg-gray-100">
                 <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
@@ -471,31 +472,7 @@ export default function WeeklyCheck() {
                   />
                 </div>
 
-                {!conversationStarted ? (
-                  <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center px-4 py-12">
-                    <div className="mb-8 flex flex-col items-center">
-                      <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-blue-400 bg-white shadow-md sm:h-40 sm:w-40">
-                        <Image
-                          src={manager.image}
-                          alt={manager.name}
-                          width={160}
-                          height={160}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <span className="mt-3 rounded-full bg-black px-4 py-2 text-lg font-medium text-white ring-2 ring-white">
-                        {manager.name} — Your Manager
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={startConversation}
-                      className="rounded-lg bg-blue-600 px-8 py-3 font-semibold text-white shadow-lg transition hover:bg-blue-700"
-                    >
-                      Start Check-in
-                    </button>
-                  </div>
-                ) : (
+                {conversationStarted ? (
                   <ScenarioChatLayout
                     chatScrollRef={chatScrollRef}
                     finalTranscript={finalTranscript}
@@ -601,7 +578,7 @@ export default function WeeklyCheck() {
                       </div>
                     ))}
                   </ScenarioChatLayout>
-                )}
+                ) : null}
               </div>
             </>
           )}

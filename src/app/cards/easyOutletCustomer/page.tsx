@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function EasyOutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -407,45 +408,27 @@ export default function EasyOutletCustomer() {
           />
         )}
 
-        {/* Intro Popup */}
-        {showIntroPopup && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 text-center shadow-2xl">
-              <div className="mb-6">
-                <Image
-                  src="/cards/outlet-customer.png"
-                  alt="Outlet Customer Service"
-                  width={200}
-                  height={150}
-                  className="mx-auto rounded-xl"
-                />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                Fashion Outlet - Hat Return
-              </h2>
-              <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                You need to return a hat you bought yesterday that doesn't fit properly. 
-                This is a simple customer service interaction where you'll speak with 
-                a friendly sales associate to process your return.
-              </p>
-              <div className="bg-blue-50 p-4 rounded-xl mb-6">
-                <h3 className="font-semibold text-blue-800 mb-2">Your situation:</h3>
-                <ul className="text-blue-700 text-left space-y-1">
-                  <li>• You bought a hat yesterday</li>
-                  <li>• It doesn't fit properly</li>
-                  <li>• You have your receipt</li>
-                  <li>• Request a return or exchange</li>
-                </ul>
-              </div>
-              <button
-                onClick={startConversation}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-              >
-                Start Return Process
-              </button>
-            </div>
-          </div>
-        )}
+        <ScenarioWelcomeModal
+          open={showIntroPopup}
+          imageSrc="/cards/outlet-customer.png"
+          imageAlt="Outlet Customer Service"
+          title="Fashion Outlet - Hat Return"
+          description={
+            <>
+              You need to return a hat you bought yesterday that doesn&apos;t fit properly. This is
+              a simple customer service interaction where you&apos;ll speak with a friendly sales
+              associate to process your return.
+            </>
+          }
+          bulletPoints={[
+            "You bought a hat yesterday",
+            "It doesn't fit properly",
+            "You have your receipt",
+            "Request a return or exchange",
+          ]}
+          ctaLabel="Start Return Process"
+          onStart={startConversation}
+        />
 
         {conversationStarted && !showCompletion && (
           <ScenarioChatLayout

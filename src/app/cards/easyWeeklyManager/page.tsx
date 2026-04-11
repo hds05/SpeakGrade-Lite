@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function EasyWeeklyManager() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -417,45 +418,27 @@ export default function EasyWeeklyManager() {
           />
         )}
 
-        {/* Intro Popup */}
-        {showIntroPopup && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 text-center shadow-2xl">
-              <div className="mb-6">
-                <Image
-                  src="/cards/weekly-manager.png"
-                  alt="Weekly Manager Check"
-                  width={200}
-                  height={150}
-                  className="mx-auto rounded-xl"
-                />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                Weekly Check-in with Your Manager
-              </h2>
-              <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                This is a simple weekly check-in conversation with your manager David. 
-                You'll have a brief, friendly conversation about how your week is going. 
-                Perfect for practicing workplace communication!
-              </p>
-              <div className="bg-blue-50 p-4 rounded-xl mb-6">
-                <h3 className="font-semibold text-blue-800 mb-2">What to expect:</h3>
-                <ul className="text-blue-700 text-left space-y-1">
-                  <li>• Brief check-in conversation</li>
-                  <li>• Friendly workplace environment</li>
-                  <li>• Practice professional communication</li>
-                  <li>• Share how your week is going</li>
-                </ul>
-              </div>
-              <button
-                onClick={startConversation}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-              >
-                Start Weekly Check-in
-              </button>
-            </div>
-          </div>
-        )}
+        <ScenarioWelcomeModal
+          open={showIntroPopup}
+          imageSrc="/cards/weekly-manager.png"
+          imageAlt="Weekly Manager Check"
+          title="Weekly Check-in with Your Manager"
+          description={
+            <>
+              This is a simple weekly check-in conversation with your manager David.
+              You&apos;ll have a brief, friendly conversation about how your week is going.
+              Perfect for practicing workplace communication!
+            </>
+          }
+          bulletPoints={[
+            "Brief check-in conversation",
+            "Friendly workplace environment",
+            "Practice professional communication",
+            "Share how your week is going",
+          ]}
+          ctaLabel="Start Weekly Check-in"
+          onStart={startConversation}
+        />
 
         {conversationStarted && !showCompletion && (
           <ScenarioChatLayout

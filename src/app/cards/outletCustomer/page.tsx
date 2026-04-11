@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function OutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "briefing" | "main">("intro");
@@ -472,55 +473,38 @@ export default function OutletCustomer() {
             </div>
           ) : (
             <>
-              {/* Intro Popup */}
-              {showIntroPopup && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
-                  <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 text-center max-h-[90vh] overflow-y-auto">
-                    <h2 className="text-xl text-gray-700 font-bold mb-4">
-                      🛒 Fashion Outlet Customer Service
-                    </h2>
-                    <div className="text-left mb-6">
-                      <h3 className="font-semibold text-gray-800 mb-2">
-                        🎭 Your Role:
-                      </h3>
-                      <p className="text-gray-700 text-sm mb-4">
-                        You're a customer at Fashion Outlet with multiple issues
-                        that need to be resolved at checkout.
-                      </p>
-
-                      <h3 className="font-semibold text-gray-800 mb-2">
-                        🛍️ Your Shopping Situation:
-                      </h3>
-                      <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-700 mb-4">
-                        {factParagraph}
-                      </div>
-
-                      <h3 className="font-semibold text-gray-800 mb-2">
-                        📋 Your Tasks:
-                      </h3>
-                      <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                        <li>Return jeans from last week (have receipt)</li>
-                        <li>Fix T-shirt price (marked $15, scanned $25)</li>
-                        <li>Apply your $20 gift card to purchase</li>
-                        <li>
-                          Request price match for jacket (have screenshot)
-                        </li>
-                        <li>Be clear and organized with your requests</li>
-                      </ul>
+              <ScenarioWelcomeModal
+                open={showIntroPopup && !conversationStarted}
+                overlayClassName="z-[999]"
+                imageSrc="/cards/outlet-customer.png"
+                imageAlt="Outlet customer service"
+                title="Fashion Outlet Customer Service"
+                description={
+                  <>
+                    You&apos;re a customer at Fashion Outlet with several checkout issues to resolve
+                    at the register. Stay clear, polite, and organized as you work through each task.
+                  </>
+                }
+                contextSlot={
+                  <div>
+                    <h3 className="mb-2 text-sm font-semibold text-gray-800">
+                      Your shopping situation
+                    </h3>
+                    <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
+                      {factParagraph}
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setShowIntroPopup(false);
-                        setPhase("main");
-                      }}
-                      className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 mr-4"
-                    >
-                      Start Shopping
-                    </button>
                   </div>
-                </div>
-              )}
+                }
+                bulletPoints={[
+                  "Return jeans from last week (have receipt)",
+                  "Fix T-shirt price (marked $15, scanned $25)",
+                  "Apply your $20 gift card to the purchase",
+                  "Request a price match for the jacket (have screenshot)",
+                  "Keep your requests clear and organized",
+                ]}
+                ctaLabel="Approach Cashier"
+                onStart={startConversation}
+              />
               <div className="bg-gradient-to-br from-violet-400 via-blue-300 to-pink-200">
                 <div className="relative w-full min-h-screen bg-gray-100">
                   <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
@@ -534,31 +518,7 @@ export default function OutletCustomer() {
                     />
                   </div>
 
-                  {!conversationStarted ? (
-                    <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center px-4 py-12">
-                      <div className="mb-8 flex flex-col items-center">
-                        <div className="h-40 w-40 overflow-hidden rounded-full border-4 border-green-500 bg-white shadow-md sm:h-44 sm:w-44">
-                          <Image
-                            src={cashier.image}
-                            alt={cashier.name}
-                            width={176}
-                            height={176}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <span className="mt-3 rounded-full bg-black px-4 py-2 text-lg font-medium text-white ring-2 ring-white">
-                          {cashier.name} — Cashier
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={startConversation}
-                        className="rounded-lg bg-green-600 px-8 py-3 font-semibold text-white shadow-lg transition hover:bg-green-700"
-                      >
-                        Approach Cashier
-                      </button>
-                    </div>
-                  ) : (
+                  {conversationStarted ? (
                     <div className="relative z-[2] w-full">
                     <ScenarioChatLayout
                       chatScrollRef={chatScrollRef}
@@ -669,7 +629,7 @@ export default function OutletCustomer() {
                       ))}
                     </ScenarioChatLayout>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </>

@@ -18,6 +18,7 @@ import {
 } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function BasicInterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "interview" | "completed">("intro");
@@ -439,45 +440,27 @@ export default function BasicInterviewRoom() {
         />
       )}
 
-      {/* Intro Popup */}
-      {showIntroPopup && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 text-center shadow-2xl">
-            <div className="mb-6">
-              <Image
-                src="/cards/interview-room.png"
-                alt="Basic Interview"
-                width={200}
-                height={150}
-                className="mx-auto rounded-xl"
-              />
-            </div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Welcome to Your First Interview!
-            </h2>
-            <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-              This is a simplified interview experience perfect for beginners. 
-              You will answer just <strong>2 general questions</strong> from our friendly HR manager. 
-              Take your time and speak clearly when responding.
-            </p>
-            <div className="bg-blue-50 p-4 rounded-xl mb-6">
-              <h3 className="font-semibold text-blue-800 mb-2">What to expect:</h3>
-              <ul className="text-blue-700 text-left space-y-1">
-                <li>• 2 simple interview questions</li>
-                <li>• Friendly, supportive environment</li>
-                <li>• Practice your speaking skills</li>
-                <li>• Receive helpful feedback</li>
-              </ul>
-            </div>
-            <button
-              onClick={startInterview}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-            >
-              Start My First Interview
-            </button>
-          </div>
-        </div>
-      )}
+      <ScenarioWelcomeModal
+        open={showIntroPopup}
+        imageSrc="/cards/interview-room.png"
+        imageAlt="Basic Interview"
+        title="Welcome to Your First Interview!"
+        description={
+          <>
+            This is a simplified interview experience perfect for beginners. You will answer
+            just <strong>2 general questions</strong> from our friendly HR manager. Take your time
+            and speak clearly when responding.
+          </>
+        }
+        bulletPoints={[
+          "2 simple interview questions",
+          "Friendly, supportive environment",
+          "Practice your speaking skills",
+          "Receive helpful feedback",
+        ]}
+        ctaLabel="Start My First Interview"
+        onStart={startInterview}
+      />
 
         {interviewStarted && !showCompletion && (
           <ScenarioChatLayout

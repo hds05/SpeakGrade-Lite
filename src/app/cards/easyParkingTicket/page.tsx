@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function EasyParkingTicket() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -423,45 +424,27 @@ export default function EasyParkingTicket() {
           />
         )}
 
-        {/* Intro Popup */}
-        {showIntroPopup && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 text-center shadow-2xl">
-              <div className="mb-6">
-                <Image
-                  src="/cards/parking-ticket.png"
-                  alt="Parking Ticket"
-                  width={200}
-                  height={150}
-                  className="mx-auto rounded-xl"
-                />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                Parking Ticket Explanation
-              </h2>
-              <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                You've just received a parking ticket and the parking officer is approaching you. 
-                You need to explain that you couldn't find any available parking spots. 
-                This is a simple conversation to practice explaining a common situation.
-              </p>
-              <div className="bg-blue-50 p-4 rounded-xl mb-6">
-                <h3 className="font-semibold text-blue-800 mb-2">Your situation:</h3>
-                <ul className="text-blue-700 text-left space-y-1">
-                  <li>• You were looking for parking for 15 minutes</li>
-                  <li>• All legal spots were taken</li>
-                  <li>• You had an important appointment</li>
-                  <li>• Explain your situation respectfully</li>
-                </ul>
-              </div>
-              <button
-                onClick={startConversation}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-              >
-                Talk to Officer
-              </button>
-            </div>
-          </div>
-        )}
+        <ScenarioWelcomeModal
+          open={showIntroPopup}
+          imageSrc="/cards/parking-ticket.png"
+          imageAlt="Parking Ticket"
+          title="Parking Ticket Explanation"
+          description={
+            <>
+              You&apos;ve just received a parking ticket and the parking officer is approaching you.
+              You need to explain that you couldn&apos;t find any available parking spots. This is a
+              simple conversation to practice explaining a common situation.
+            </>
+          }
+          bulletPoints={[
+            "You were looking for parking for 15 minutes",
+            "All legal spots were taken",
+            "You had an important appointment",
+            "Explain your situation respectfully",
+          ]}
+          ctaLabel="Talk to Officer"
+          onStart={startConversation}
+        />
 
         {conversationStarted && !showCompletion && (
           <ScenarioChatLayout

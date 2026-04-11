@@ -12,6 +12,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 const mike = {
   name: "Mike",
@@ -405,44 +406,47 @@ export default function OrderMixUp() {
         />
       </div>
 
-      {showIntroPopup && phase === "intro" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="mx-4 w-full max-w-2xl rounded-2xl bg-white p-8 text-center shadow-2xl">
-            <h2 className="mb-4 text-3xl font-bold text-gray-800">
-              Order mix-up at Burger Express
-            </h2>
-            <div className="mb-6 space-y-4 text-left text-sm text-gray-700">
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                <h3 className="mb-2 font-semibold text-red-800">
-                  Your order is wrong
-                </h3>
-                <ul className="space-y-1 text-xs">
-                  <li>Burger has onions (you ordered no onions)</li>
-                  <li>Small fries (you ordered medium)</li>
-                  <li>Diet Coke (you ordered regular)</li>
-                  <li>Missing onion rings from your coupon</li>
-                </ul>
-              </div>
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h3 className="mb-2 font-semibold text-blue-800">Your goal</h3>
-                <ul className="space-y-1 text-xs">
-                  <li>Explain each problem clearly</li>
-                  <li>Be specific about what is wrong</li>
-                  <li>Show your receipt and coupon when asked</li>
-                  <li>Get all 4 issues fixed professionally</li>
-                </ul>
-              </div>
+      <ScenarioWelcomeModal
+        open={showIntroPopup && phase === "intro"}
+        imageSrc={mike.avatar}
+        imageAlt={mike.name}
+        title="Order mix-up at Burger Express"
+        description={
+          <>
+            You are at the drive-thru and your order has several mistakes. Work with Mike the
+            cashier to get everything corrected—stay calm, clear, and professional.
+          </>
+        }
+        contextSlot={
+          <div className="space-y-4 text-sm text-gray-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <h3 className="mb-2 font-semibold text-red-800">Your order is wrong</h3>
+              <ul className="list-inside list-disc space-y-1 text-red-900/90">
+                <li>Burger has onions (you ordered no onions)</li>
+                <li>Small fries (you ordered medium)</li>
+                <li>Diet Coke (you ordered regular)</li>
+                <li>Missing onion rings from your coupon</li>
+              </ul>
             </div>
-            <button
-              type="button"
-              onClick={() => void handleStart()}
-              className="bg-gradient-to-r from-orange-500 to-red-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105"
-            >
-              Start drive-thru conversation
-            </button>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="mb-2 font-semibold text-slate-800">Your goal</h3>
+              <ul className="list-inside list-disc space-y-1">
+                <li>Explain each problem clearly and be specific</li>
+                <li>Show your receipt and coupon when asked</li>
+                <li>Get all four issues fixed professionally</li>
+              </ul>
+            </div>
           </div>
-        </div>
-      )}
+        }
+        bulletPoints={[
+          "Drive-thru conversation with the cashier",
+          "Address each mistake one at a time",
+          "Keep a friendly, professional tone",
+          "Resolve all issues before you leave",
+        ]}
+        ctaLabel="Start drive-thru conversation"
+        onStart={() => void handleStart()}
+      />
 
       {conversationStarted && !showCompletion && (
         <div className="relative z-[2] w-full">

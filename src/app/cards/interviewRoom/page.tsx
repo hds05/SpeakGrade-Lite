@@ -18,6 +18,7 @@ import {
 } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function InterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "main">("intro");
@@ -633,27 +634,28 @@ export default function InterviewRoom() {
               </div>
             ) : (
               <>
-                {/* Intro Popup */}
-                {showIntroPopup && !interviewStarted && (
-                  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
-                    <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 text-center">
-                      <h2 className="text-xl text-gray-700 font-bold mb-4">
-                        Welcome to Your Interview
-                      </h2>
-                      <p className="text-gray-700 mb-6">
-                        You are in a professional interview room with three
-                        interviewers. Each will take turns asking you questions.
-                        Speak clearly when it's your turn.
-                      </p>
-                      <button
-                        onClick={() => setShowIntroPopup(false)}
-                        className="px-6 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-                      >
-                        Proceed
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <ScenarioWelcomeModal
+                  open={showIntroPopup && !interviewStarted}
+                  overlayClassName="z-[999]"
+                  imageSrc="/cards/interview-room.png"
+                  imageAlt="Interview room"
+                  title="Welcome to Your Interview"
+                  description={
+                    <>
+                      You are in a professional interview room with three interviewers. Each will
+                      take turns asking you questions. Speak clearly when it&apos;s your turn and
+                      stay focused for the timed session.
+                    </>
+                  }
+                  bulletPoints={[
+                    "Three interviewers rotate questions",
+                    "Clear, professional answers",
+                    "Timed interview session",
+                    "Listen for who is speaking before you reply",
+                  ]}
+                  ctaLabel="Start Interview"
+                  onStart={startInterview}
+                />
 
                 <div className="relative w-full min-h-screen bg-gray-100">
                   <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
@@ -667,35 +669,7 @@ export default function InterviewRoom() {
                     />
                   </div>
 
-                  {!interviewStarted ? (
-                    <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center gap-10 px-4 py-12">
-                      <div className="flex flex-wrap items-start justify-center gap-6">
-                        {interviewers.map((interviewer, idx) => (
-                          <div key={idx} className="flex flex-col items-center">
-                            <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-green-400 bg-white shadow-md sm:h-36 sm:w-36">
-                              <Image
-                                src={interviewer.image}
-                                alt={interviewer.name}
-                                width={144}
-                                height={144}
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                            <span className="mt-2 rounded-full bg-black px-3 py-1 text-sm font-medium text-white ring-2 ring-white">
-                              {interviewer.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={startInterview}
-                        className="rounded-lg bg-indigo-600 px-8 py-3 font-semibold text-white transition hover:bg-indigo-700"
-                      >
-                        Start Interview
-                      </button>
-                    </div>
-                  ) : (
+                  {interviewStarted ? (
                     <div className="relative z-[2] w-full">
                     <ScenarioChatLayout
                       chatScrollRef={chatScrollRef}
@@ -814,7 +788,7 @@ export default function InterviewRoom() {
                       })}
                     </ScenarioChatLayout>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </>
             )}

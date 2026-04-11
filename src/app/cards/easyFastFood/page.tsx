@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 export default function EasyFastFood() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -431,30 +432,26 @@ export default function EasyFastFood() {
         ></div>
       </div>
 
-      {/* Intro Screen */}
-      {showIntroPopup && phase === "intro" && (
-        <div className="relative z-[2] min-h-screen flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 mx-4 max-w-2xl">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-white mb-6">🍟 Easy Fast Food Order</h1>
-              <p className="text-blue-200 text-lg mb-8 leading-relaxed">
-                Practice ordering food at a fast food restaurant! This is an easy conversation where you'll:
-              </p>
-              <ul className="text-blue-200 text-left mb-8 space-y-2">
-                <li>• Order your favorite fast food items</li>
-                <li>• Answer simple follow-up questions</li>
-                <li>• Complete your order successfully</li>
-              </ul>
-            </div>
-            <button
-              onClick={startConversation}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-            >
-              Start Ordering
-            </button>
-          </div>
-        </div>
-      )}
+      <ScenarioWelcomeModal
+        open={showIntroPopup && phase === "intro"}
+        overlayClassName="z-[2]"
+        imageSrc="/backgrounds/fastFoodBg.png"
+        imageAlt="Fast food restaurant"
+        title="Easy Fast Food Order"
+        description={
+          <>
+            Practice ordering food at a fast food restaurant. This is a short, friendly conversation
+            with the cashier—order what you like and answer a couple of simple follow-up questions.
+          </>
+        }
+        bulletPoints={[
+          "Order your favorite fast food items",
+          "Answer simple follow-up questions",
+          "Complete your order successfully",
+        ]}
+        ctaLabel="Start Ordering"
+        onStart={startConversation}
+      />
 
       {conversationStarted && !showCompletion && (
         <div className="relative z-[2] w-full">

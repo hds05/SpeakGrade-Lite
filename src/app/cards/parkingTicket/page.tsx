@@ -14,6 +14,7 @@ import { unlockWebAudioOnUserGesture } from "@/utils/webAudioUnlock";
 import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
+import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
 
 interface Message {
   role: "assistant" | "user";
@@ -526,45 +527,36 @@ export default function ParkingTicket(): React.JSX.Element {
             </div>
           ) : (
             <>
-              {showIntroPopup && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[999]">
-                  <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 text-center max-h-[90vh] overflow-y-auto">
-                    <h2 className="text-xl text-gray-700 font-bold mb-4">
-                      🚔 Police Parking Ticket Encounter
-                    </h2>
-                    <div className="text-left mb-6">
-                      <h3 className="font-semibold text-gray-800 mb-2">🎭 Your Role:</h3>
-                      <p className="text-gray-700 text-sm mb-4">
-                        You are a delivery driver who just received a parking ticket. You need to explain your situation to the police officer.
-                      </p>
-                      
-                      <h3 className="font-semibold text-gray-800 mb-2">📝 The Facts (What Really Happened):</h3>
-                      <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-700 mb-4">
-                        {factParagraph}
-                      </div>
-                      
-                      <h3 className="font-semibold text-gray-800 mb-2">🎯 Your Goal:</h3>
-                      <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                        <li>Explain your situation clearly and accurately</li>
-                        <li>Provide specific details from the facts above</li>
-                        <li>Be respectful but assertive about your case</li>
-                        <li>Try to convince the officer to cancel the ticket</li>
-                        <li>Stay consistent with your story throughout</li>
-                      </ul>
+              <ScenarioWelcomeModal
+                open={showIntroPopup && !conversationStarted}
+                overlayClassName="z-[999]"
+                imageSrc="/cards/parking-ticket.png"
+                imageAlt="Parking ticket encounter"
+                title="Police Parking Ticket Encounter"
+                description={
+                  <>
+                    You are a delivery driver who just received a parking ticket. Explain your
+                    situation to {officer.name} using the facts below—stay respectful, specific, and
+                    consistent.
+                  </>
+                }
+                contextSlot={
+                  <div>
+                    <h3 className="mb-2 text-sm font-semibold text-gray-800">The facts</h3>
+                    <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
+                      {factParagraph}
                     </div>
-                    
-                    <button
-                      onClick={() => {
-                        setShowIntroPopup(false);
-                        setPhase("main");
-                      }}
-                      className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 mr-4"
-                    >
-                      I'm Ready
-                    </button>
                   </div>
-                </div>
-              )}
+                }
+                bulletPoints={[
+                  "Explain your situation clearly and accurately",
+                  "Use specific details from your story",
+                  "Be respectful but assertive about your case",
+                  "Try to convince the officer to cancel the ticket",
+                ]}
+                ctaLabel="Start Conversation"
+                onStart={startConversation}
+              />
 
               <div className="relative w-full min-h-screen bg-gray-100">
                 <div className="absolute inset-0 z-[0] opacity-70 overflow-hidden">
@@ -578,31 +570,7 @@ export default function ParkingTicket(): React.JSX.Element {
                   />
                 </div>
 
-                {!conversationStarted ? (
-                  <div className="relative z-[2] flex min-h-screen flex-col items-center justify-center px-4 py-12">
-                    <div className="mb-8 flex flex-col items-center">
-                      <div className="h-36 w-36 overflow-hidden rounded-full border-4 border-blue-400 bg-white shadow-md sm:h-40 sm:w-40">
-                        <Image
-                          src={officer.image}
-                          alt={officer.name}
-                          width={160}
-                          height={160}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <span className="mt-3 rounded-full bg-black px-4 py-2 text-sm font-medium text-white ring-2 ring-white">
-                        {officer.name}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={startConversation}
-                      className="rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
-                    >
-                      Start Conversation
-                    </button>
-                  </div>
-                ) : (
+                {conversationStarted ? (
                   <ScenarioChatLayout
                     chatScrollRef={chatScrollRef}
                     finalTranscript={finalTranscript}
@@ -724,7 +692,7 @@ export default function ParkingTicket(): React.JSX.Element {
                       </div>
                     ))}
                   </ScenarioChatLayout>
-                )}
+                ) : null}
               </div>
             </>
           )}
