@@ -370,8 +370,26 @@ export default function BasicInterviewRoom() {
     setScore(participationScore);
     
     // Generate final feedback
+    const userTurns = history.filter((m) => m.role === "user").length;
+    const avgLen =
+      userTurns > 0
+        ? Math.round(
+            history
+              .filter((m) => m.role === "user")
+              .reduce((sum, m) => sum + String(m.content || "").trim().length, 0) / userTurns
+          )
+        : 0;
+
+    let feedbackText =
+      `Session summary: you answered ${userTurns} question(s). ` +
+      (userTurns === 0
+        ? "There was not enough content to evaluate. Try answering with 2–4 sentences and one concrete detail."
+        : avgLen < 20
+          ? "Your answers were often very short. Aim to add one example and one outcome to each answer."
+          : "You provided workable answers. To improve, make your examples more specific and keep a clear structure.");
+
     const finalFeedback = {
-      feedback: `Excellent work completing your first interview! You demonstrated good communication skills by introducing yourself and engaging with follow-up questions. This shows great preparation and confidence for future interviews.`,
+      feedback: feedbackText,
       score: participationScore,
       maxScore: 20
     };
@@ -589,7 +607,7 @@ export default function BasicInterviewRoom() {
 
               <div className="bg-white/20 rounded-xl p-6 mb-8">
                 <h3 className="text-xl font-semibold text-blue-600 font-bold text-2xl mb-4">Feedback</h3>
-                <p className="text-white leading-relaxed">{feedback.feedback}</p>
+                <p className="text-slate-800 leading-relaxed">{feedback.feedback}</p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

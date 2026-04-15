@@ -216,6 +216,31 @@ export default function InterviewRoom() {
       maxScore: maxScore
     });
     
+    // Build an objective end-of-session summary (avoid overly positive feedback on low participation).
+    const answeredCount = history.filter((m) => m.role === "user").length;
+    const accuracyPct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    const timeUsedSec = Initial_Time - timeLeft;
+
+    let objectiveSummary = `Session summary: answered ${answeredCount} question(s) in ${timeUsedSec}s. Score: ${score}/${maxScore} (${accuracyPct}%). `;
+
+    if (answeredCount <= 1) {
+      objectiveSummary +=
+        "There was not enough content to evaluate your interview skills reliably. Next time, aim for complete answers (2–4 sentences) with one concrete example.";
+    } else if (maxScore === 0 || accuracyPct < 40) {
+      objectiveSummary +=
+        "Your responses were frequently unclear, too short, or off-topic. Focus on: answering the question directly, adding specific details, and keeping a professional tone.";
+    } else if (accuracyPct < 60) {
+      objectiveSummary +=
+        "Your performance was mixed. You communicated some relevant points, but your answers often lacked specificity or structure. Try using a simple structure (situation → action → result).";
+    } else if (accuracyPct < 80) {
+      objectiveSummary +=
+        "Solid performance overall. To improve, add more concrete examples and quantify outcomes when possible.";
+    } else {
+      objectiveSummary +=
+        "Strong performance. Keep the same clarity and professionalism, and continue adding specific, measurable examples to make answers even stronger.";
+    }
+
+    setFeedback({ feedback: objectiveSummary, score: Math.round((accuracyPct / 100) * 10), maxScore: 10 });
     setShowCompletion(true);
   };
 
@@ -591,7 +616,7 @@ export default function InterviewRoom() {
                       {/* Feedback Display */}
                       <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-8 border border-white/20">
                         <h3 className="text-xl font-semibold text-white mb-4">📊 Your Performance</h3>
-                        <p className="text-white text-sm leading-relaxed">{feedback.feedback}</p>
+                        <p className="text-slate-200 text-sm leading-relaxed">{feedback.feedback}</p>
                       </div>
                     </>
                   )}
