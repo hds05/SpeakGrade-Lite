@@ -531,21 +531,8 @@ export default function InterviewRoom() {
 
     if (isTimeUp) {
       handleCompletion();
-      // setShowCompletion(true); // Show confetti on time limit
     } else {
-      // Reset everything for a manual restart
-      // setShowIntroPopup(true);
-      // setHistory([]);
-      // setSpeakingIndex(null);
-      // setIndex(0);
-      // setPhase("intro");
-      // setShowCompletion(false);
-      // setTimeLeft(Initial_Time);
-      // setFeedback(null);
-      // setScore(0);
-      // setMaxScore(0);
-      // setQuestionCount(0);
-      window.location.reload(); // forces browser to ask mic permission again on start
+      router.push("/dashboard");
     }
 
   };
