@@ -894,7 +894,7 @@ export default function ClientLayout({
             </div>
             
             {/* Credits Display for Authenticated Users */}
-            <CreditsDisplay />
+            <CreditsDisplay isDarkMode={isDarkMode} />
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 text-center gap-6 sm:gap-8 lg:gap-10 max-w-7xl w-full mx-auto">
               {filteredComponents
