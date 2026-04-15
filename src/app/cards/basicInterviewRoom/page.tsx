@@ -46,6 +46,9 @@ export default function BasicInterviewRoom() {
   } = useSpeechRecognition();
   const audioUnlockedRef = useRef(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const lastProcessedTranscriptRef = useRef<string>("");
+  const lastProcessedAtRef = useRef<number>(0);
+  const processingTranscriptRef = useRef<boolean>(false);
 
   // Simplified interviewer data - just one interviewer for simplicity
   const interviewer = {
@@ -173,10 +176,27 @@ export default function BasicInterviewRoom() {
       console.log("⚠️ Not processing: interviewStarted=", interviewStarted);
       return;
     }
-    if (!listening && transcript.trim() && transcript.trim().length > 3) {
-      console.log("🎤 Processing user answer:", transcript);
-      processUserAnswer(transcript);
-      resetTranscript();
+    const trimmed = transcript.trim();
+    if (!listening && trimmed && trimmed.length > 3) {
+      // Guard against duplicate sends (speech recognition can flip listening=false multiple times,
+      // and React StrictMode can re-run effects in dev).
+      const now = Date.now();
+      const isDuplicate =
+        trimmed === lastProcessedTranscriptRef.current && now - lastProcessedAtRef.current < 2500;
+      if (processingTranscriptRef.current || isDuplicate) {
+        console.log("🧯 Skipping duplicate transcript send:", { isDuplicate, processing: processingTranscriptRef.current });
+        return;
+      }
+
+      processingTranscriptRef.current = true;
+      lastProcessedTranscriptRef.current = trimmed;
+      lastProcessedAtRef.current = now;
+
+      console.log("🎤 Processing user answer:", trimmed);
+      resetTranscript(); // clear ASAP to avoid re-trigger on same text
+      Promise.resolve(processUserAnswer(trimmed)).finally(() => {
+        processingTranscriptRef.current = false;
+      });
     } else {
       console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
     }
