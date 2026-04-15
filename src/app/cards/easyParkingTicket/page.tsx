@@ -42,6 +42,9 @@ export default function EasyParkingTicket() {
   const audioUnlockedRef = useRef(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const lastProcessedTranscriptRef = useRef<string>("");
+  const lastProcessedAtRef = useRef<number>(0);
+  const processingTranscriptRef = useRef<boolean>(false);
 
   // Officer data
   const officer = {
@@ -115,21 +118,42 @@ export default function EasyParkingTicket() {
     }
   }, [questionNumber]);
 
-  // Auto-process user response when they stop speaking
+  // Auto-process user response when a final transcript is produced.
+  // Using `finalTranscript` avoids duplicate sends caused by `listening` flapping and effect re-runs.
   useEffect(() => {
-    console.log("🔍 useEffect triggered:", { conversationStarted, micActive, listening, transcript: transcript.substring(0, 50) });
-    if (!conversationStarted) {
-      console.log("⚠️ Not processing: conversationStarted=", conversationStarted);
+    console.log("🔍 finalTranscript effect:", {
+      conversationStarted,
+      micActive,
+      listening,
+      finalTranscript: finalTranscript.substring(0, 50),
+    });
+
+    if (!conversationStarted) return;
+
+    const trimmed = finalTranscript.trim();
+    if (!trimmed || trimmed.length <= 3) return;
+
+    const now = Date.now();
+    const isDuplicate =
+      trimmed === lastProcessedTranscriptRef.current && now - lastProcessedAtRef.current < 5000;
+    if (processingTranscriptRef.current || isDuplicate) {
+      console.log("🧯 Skipping duplicate finalTranscript send:", {
+        isDuplicate,
+        processing: processingTranscriptRef.current,
+      });
       return;
     }
-    if (!listening && transcript.trim() && transcript.trim().length > 3) {
-      console.log("🎤 Processing user response:", transcript);
-      processUserResponse(transcript);
-      resetTranscript();
-    } else {
-      console.log("⏳ Waiting - listening:", listening, "transcript length:", transcript.length);
-    }
-  }, [listening, transcript, conversationStarted, processUserResponse]);
+
+    processingTranscriptRef.current = true;
+    lastProcessedTranscriptRef.current = trimmed;
+    lastProcessedAtRef.current = now;
+
+    console.log("🎤 Processing user response (final):", trimmed);
+    resetTranscript(); // clear ASAP to avoid re-trigger on same text
+    Promise.resolve(processUserResponse(trimmed)).finally(() => {
+      processingTranscriptRef.current = false;
+    });
+  }, [finalTranscript, conversationStarted, micActive, listening, processUserResponse, resetTranscript]);
 
   useEffect(() => {
     const el = chatScrollRef.current;
