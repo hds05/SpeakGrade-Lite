@@ -15,6 +15,8 @@ import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithB
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function EasyFastFood() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -30,6 +32,7 @@ export default function EasyFastFood() {
   const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const {
@@ -55,6 +58,15 @@ export default function EasyFastFood() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -437,19 +449,36 @@ export default function EasyFastFood() {
         overlayClassName="z-[2]"
         imageSrc="/backgrounds/fastFoodBg.png"
         imageAlt="Fast food restaurant"
-        title="Easy Fast Food Order"
+        contextSlot={<LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />}
+        title={uiLocale === "es" ? "Pedido fácil de comida rápida" : "Easy Fast Food Order"}
         description={
-          <>
-            Practice ordering food at a fast food restaurant. This is a short, friendly conversation
-            with the cashier—order what you like and answer a couple of simple follow-up questions.
-          </>
+          uiLocale === "es" ? (
+            <>
+              Practica pedir comida en un restaurante de comida rápida. Es una conversación corta y
+              amigable con el cajero: pide lo que quieras y responde un par de preguntas sencillas.
+            </>
+          ) : (
+            <>
+              Practice ordering food at a fast food restaurant. This is a short, friendly conversation
+              with the cashier—order what you like and answer a couple of simple follow-up questions.
+            </>
+          )
         }
-        bulletPoints={[
-          "Order your favorite fast food items",
-          "Answer simple follow-up questions",
-          "Complete your order successfully",
-        ]}
-        ctaLabel="Start Ordering"
+        expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+        bulletPoints={
+          uiLocale === "es"
+            ? [
+                "Pide tus productos favoritos",
+                "Responde preguntas de seguimiento sencillas",
+                "Completa tu pedido con éxito",
+              ]
+            : [
+                "Order your favorite fast food items",
+                "Answer simple follow-up questions",
+                "Complete your order successfully",
+              ]
+        }
+        ctaLabel={uiLocale === "es" ? "Empezar a pedir" : "Start Ordering"}
         onStart={startConversation}
       />
 

@@ -15,6 +15,8 @@ import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithB
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function EasyWeeklyManager() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -29,6 +31,7 @@ export default function EasyWeeklyManager() {
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const {
@@ -54,6 +57,15 @@ export default function EasyWeeklyManager() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -422,21 +434,44 @@ export default function EasyWeeklyManager() {
           open={showIntroPopup}
           imageSrc="/cards/weekly-manager.png"
           imageAlt="Weekly Manager Check"
-          title="Weekly Check-in with Your Manager"
-          description={
-            <>
-              This is a simple weekly check-in conversation with your manager David.
-              You&apos;ll have a brief, friendly conversation about how your week is going.
-              Perfect for practicing workplace communication!
-            </>
+          contextSlot={<LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />}
+          title={
+            uiLocale === "es"
+              ? "Reunión semanal con tu gerente"
+              : "Weekly Check-in with Your Manager"
           }
-          bulletPoints={[
-            "Brief check-in conversation",
-            "Friendly workplace environment",
-            "Practice professional communication",
-            "Share how your week is going",
-          ]}
-          ctaLabel="Start Weekly Check-in"
+          description={
+            uiLocale === "es" ? (
+              <>
+                Esta es una conversación sencilla de seguimiento semanal con tu gerente, David.
+                Tendrás una charla breve y amigable sobre cómo va tu semana. ¡Perfecto para practicar
+                comunicación en el trabajo!
+              </>
+            ) : (
+              <>
+                This is a simple weekly check-in conversation with your manager David.
+                You&apos;ll have a brief, friendly conversation about how your week is going.
+                Perfect for practicing workplace communication!
+              </>
+            )
+          }
+          expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+          bulletPoints={
+            uiLocale === "es"
+              ? [
+                  "Conversación breve de seguimiento",
+                  "Un entorno laboral amigable",
+                  "Practica comunicación profesional",
+                  "Comparte cómo va tu semana",
+                ]
+              : [
+                  "Brief check-in conversation",
+                  "Friendly workplace environment",
+                  "Practice professional communication",
+                  "Share how your week is going",
+                ]
+          }
+          ctaLabel={uiLocale === "es" ? "Empezar reunión semanal" : "Start Weekly Check-in"}
           onStart={startConversation}
         />
 

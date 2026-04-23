@@ -15,6 +15,8 @@ import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithB
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function EasyOutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -30,6 +32,7 @@ export default function EasyOutletCustomer() {
   const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [hatReturned, setHatReturned] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const {
@@ -55,6 +58,15 @@ export default function EasyOutletCustomer() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -412,21 +424,40 @@ export default function EasyOutletCustomer() {
           open={showIntroPopup}
           imageSrc="/cards/outlet-customer.png"
           imageAlt="Outlet Customer Service"
-          title="Fashion Outlet - Hat Return"
+          contextSlot={<LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />}
+          title={uiLocale === "es" ? "Outlet de moda: devolución de un sombrero" : "Fashion Outlet - Hat Return"}
           description={
-            <>
-              You need to return a hat you bought yesterday that doesn&apos;t fit properly. This is
-              a simple customer service interaction where you&apos;ll speak with a friendly sales
-              associate to process your return.
-            </>
+            uiLocale === "es" ? (
+              <>
+                Necesitas devolver un sombrero que compraste ayer y que no te queda bien. Esta es una
+                interacción sencilla de atención al cliente en la que hablarás con una vendedora amable
+                para procesar la devolución.
+              </>
+            ) : (
+              <>
+                You need to return a hat you bought yesterday that doesn&apos;t fit properly. This is
+                a simple customer service interaction where you&apos;ll speak with a friendly sales
+                associate to process your return.
+              </>
+            )
           }
-          bulletPoints={[
-            "You bought a hat yesterday",
-            "It doesn't fit properly",
-            "You have your receipt",
-            "Request a return or exchange",
-          ]}
-          ctaLabel="Start Return Process"
+          expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+          bulletPoints={
+            uiLocale === "es"
+              ? [
+                  "Compraste un sombrero ayer",
+                  "No te queda bien",
+                  "Tienes el recibo",
+                  "Pide una devolución o un cambio",
+                ]
+              : [
+                  "You bought a hat yesterday",
+                  "It doesn't fit properly",
+                  "You have your receipt",
+                  "Request a return or exchange",
+                ]
+          }
+          ctaLabel={uiLocale === "es" ? "Iniciar devolución" : "Start Return Process"}
           onStart={startConversation}
         />
 

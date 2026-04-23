@@ -13,6 +13,8 @@ import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithB
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 const mike = {
   name: "Mike",
@@ -34,6 +36,7 @@ export default function OrderMixUp() {
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
 
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -57,6 +60,15 @@ export default function OrderMixUp() {
       alert("Browser doesn't support speech recognition.");
     }
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     return () => {
@@ -410,41 +422,94 @@ export default function OrderMixUp() {
         open={showIntroPopup && phase === "intro"}
         imageSrc={mike.avatar}
         imageAlt={mike.name}
-        title="Order mix-up at Burger Express"
+        title={
+          uiLocale === "es"
+            ? "Pedido incorrecto en Burger Express"
+            : "Order mix-up at Burger Express"
+        }
         description={
-          <>
-            You are at the drive-thru and your order has several mistakes. Work with Mike the
-            cashier to get everything corrected—stay calm, clear, and professional.
-          </>
+          uiLocale === "es" ? (
+            <>
+              Estás en el autoservicio y tu pedido tiene varios errores. Trabaja con Mike, el cajero,
+              para corregirlo todo. Mantente calmado(a), claro(a) y profesional.
+            </>
+          ) : (
+            <>
+              You are at the drive-thru and your order has several mistakes. Work with Mike the
+              cashier to get everything corrected—stay calm, clear, and professional.
+            </>
+          )
         }
         contextSlot={
           <div className="space-y-4 text-sm text-gray-700">
             <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <h3 className="mb-2 font-semibold text-red-800">Your order is wrong</h3>
+              <div className="mb-3">
+                <LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />
+              </div>
+              <h3 className="mb-2 font-semibold text-red-800">
+                {uiLocale === "es" ? "Tu pedido está mal" : "Your order is wrong"}
+              </h3>
               <ul className="list-inside list-disc space-y-1 text-red-900/90">
-                <li>Burger has onions (you ordered no onions)</li>
-                <li>Small fries (you ordered medium)</li>
-                <li>Diet Coke (you ordered regular)</li>
-                <li>Missing onion rings from your coupon</li>
+                {uiLocale === "es" ? (
+                  <>
+                    <li>La hamburguesa tiene cebolla (pediste sin cebolla)</li>
+                    <li>Papas pequeñas (pediste medianas)</li>
+                    <li>Coca-Cola light (pediste normal)</li>
+                    <li>Faltan aros de cebolla del cupón</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Burger has onions (you ordered no onions)</li>
+                    <li>Small fries (you ordered medium)</li>
+                    <li>Diet Coke (you ordered regular)</li>
+                    <li>Missing onion rings from your coupon</li>
+                  </>
+                )}
               </ul>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <h3 className="mb-2 font-semibold text-slate-800">Your goal</h3>
+              <h3 className="mb-2 font-semibold text-slate-800">
+                {uiLocale === "es" ? "Tu objetivo" : "Your goal"}
+              </h3>
               <ul className="list-inside list-disc space-y-1">
-                <li>Explain each problem clearly and be specific</li>
-                <li>Show your receipt and coupon when asked</li>
-                <li>Get all four issues fixed professionally</li>
+                {uiLocale === "es" ? (
+                  <>
+                    <li>Explica cada problema con claridad y sé específico(a)</li>
+                    <li>Muestra tu recibo y cupón cuando te lo pidan</li>
+                    <li>Resuelve los cuatro problemas de forma profesional</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Explain each problem clearly and be specific</li>
+                    <li>Show your receipt and coupon when asked</li>
+                    <li>Get all four issues fixed professionally</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
         }
-        bulletPoints={[
-          "Drive-thru conversation with the cashier",
-          "Address each mistake one at a time",
-          "Keep a friendly, professional tone",
-          "Resolve all issues before you leave",
-        ]}
-        ctaLabel="Start drive-thru conversation"
+        expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+        bulletPoints={
+          uiLocale === "es"
+            ? [
+                "Conversación en autoservicio con el cajero",
+                "Aborda cada error uno por uno",
+                "Mantén un tono amable y profesional",
+                "Resuelve todo antes de irte",
+              ]
+            : [
+                "Drive-thru conversation with the cashier",
+                "Address each mistake one at a time",
+                "Keep a friendly, professional tone",
+                "Resolve all issues before you leave",
+              ]
+        }
+        ctaLabel={
+          uiLocale === "es"
+            ? "Iniciar conversación en autoservicio"
+            : "Start drive-thru conversation"
+        }
         onStart={() => void handleStart()}
       />
 

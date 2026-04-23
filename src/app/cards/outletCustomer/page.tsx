@@ -15,6 +15,8 @@ import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function OutletCustomer() {
   const [phase, setPhase] = useState<"intro" | "briefing" | "main">("intro");
@@ -35,6 +37,7 @@ export default function OutletCustomer() {
     giftCard: false,
     priceMatch: false,
   });
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -53,6 +56,15 @@ export default function OutletCustomer() {
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -478,31 +490,56 @@ export default function OutletCustomer() {
                 overlayClassName="z-[999]"
                 imageSrc="/cards/outlet-customer.png"
                 imageAlt="Outlet customer service"
-                title="Fashion Outlet Customer Service"
+                title={
+                  uiLocale === "es"
+                    ? "Atención al cliente en outlet de moda"
+                    : "Fashion Outlet Customer Service"
+                }
                 description={
-                  <>
-                    You&apos;re a customer at Fashion Outlet with several checkout issues to resolve
-                    at the register. Stay clear, polite, and organized as you work through each task.
-                  </>
+                  uiLocale === "es" ? (
+                    <>
+                      Eres cliente en Fashion Outlet y tienes varios problemas en caja que debes resolver.
+                      Mantente claro(a), educado(a) y organizado(a) mientras atiendes cada tarea.
+                    </>
+                  ) : (
+                    <>
+                      You&apos;re a customer at Fashion Outlet with several checkout issues to resolve
+                      at the register. Stay clear, polite, and organized as you work through each task.
+                    </>
+                  )
                 }
                 contextSlot={
                   <div>
+                    <div className="mb-4">
+                      <LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />
+                    </div>
                     <h3 className="mb-2 text-sm font-semibold text-gray-800">
-                      Your shopping situation
+                      {uiLocale === "es" ? "Tu situación de compra" : "Your shopping situation"}
                     </h3>
                     <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
                       {factParagraph}
                     </div>
                   </div>
                 }
-                bulletPoints={[
-                  "Return jeans from last week (have receipt)",
-                  "Fix T-shirt price (marked $15, scanned $25)",
-                  "Apply your $20 gift card to the purchase",
-                  "Request a price match for the jacket (have screenshot)",
-                  "Keep your requests clear and organized",
-                ]}
-                ctaLabel="Approach Cashier"
+                expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+                bulletPoints={
+                  uiLocale === "es"
+                    ? [
+                        "Devolver jeans de la semana pasada (tienes el recibo)",
+                        "Corregir el precio de la camiseta (marcada $15, cobrada $25)",
+                        "Aplicar tu tarjeta de regalo de $20 a la compra",
+                        "Pedir igualación de precio para la chaqueta (tienes captura)",
+                        "Mantén tus solicitudes claras y organizadas",
+                      ]
+                    : [
+                        "Return jeans from last week (have receipt)",
+                        "Fix T-shirt price (marked $15, scanned $25)",
+                        "Apply your $20 gift card to the purchase",
+                        "Request a price match for the jacket (have screenshot)",
+                        "Keep your requests clear and organized",
+                      ]
+                }
+                ctaLabel={uiLocale === "es" ? "Acercarte a caja" : "Approach Cashier"}
                 onStart={startConversation}
               />
               <div className="bg-gradient-to-br from-violet-400 via-blue-300 to-pink-200">

@@ -15,6 +15,8 @@ import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 interface Message {
   role: "assistant" | "user";
@@ -42,6 +44,7 @@ export default function ParkingTicket(): React.JSX.Element {
   const [currentQuestionScore, setCurrentQuestionScore] = useState<number>(0);
   const [ticketOutcome, setTicketOutcome] = useState<string>("pending");
   const [duplicateCount, setDuplicateCount] = useState<number>(0);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -62,6 +65,15 @@ export default function ParkingTicket(): React.JSX.Element {
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -504,7 +516,7 @@ export default function ParkingTicket(): React.JSX.Element {
                   🎉 Conversation Completed!
                 </h2>
                 <p className="text-sm sm:text-lg text-white mb-6">
-                  Great job! You've finished the police encounter. Thank you for participating! 😁
+                  Great job! You&apos;ve finished the police encounter. Thank you for participating! 😁
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
@@ -532,29 +544,56 @@ export default function ParkingTicket(): React.JSX.Element {
                 overlayClassName="z-[999]"
                 imageSrc="/cards/parking-ticket.png"
                 imageAlt="Parking ticket encounter"
-                title="Police Parking Ticket Encounter"
+                title={
+                  uiLocale === "es"
+                    ? "Encuentro con policía por multa de estacionamiento"
+                    : "Police Parking Ticket Encounter"
+                }
                 description={
-                  <>
-                    You are a delivery driver who just received a parking ticket. Explain your
-                    situation to {officer.name} using the facts below—stay respectful, specific, and
-                    consistent.
-                  </>
+                  uiLocale === "es" ? (
+                    <>
+                      Eres un(a) repartidor(a) que acaba de recibir una multa de estacionamiento. Explica tu
+                      situación a {officer.name} usando los hechos de abajo. Mantente respetuoso(a), específico(a)
+                      y consistente.
+                    </>
+                  ) : (
+                    <>
+                      You are a delivery driver who just received a parking ticket. Explain your
+                      situation to {officer.name} using the facts below—stay respectful, specific, and
+                      consistent.
+                    </>
+                  )
                 }
                 contextSlot={
                   <div>
-                    <h3 className="mb-2 text-sm font-semibold text-gray-800">The facts</h3>
+                    <div className="mb-4">
+                      <LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />
+                    </div>
+                    <h3 className="mb-2 text-sm font-semibold text-gray-800">
+                      {uiLocale === "es" ? "Los hechos" : "The facts"}
+                    </h3>
                     <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-800">
                       {factParagraph}
                     </div>
                   </div>
                 }
-                bulletPoints={[
-                  "Explain your situation clearly and accurately",
-                  "Use specific details from your story",
-                  "Be respectful but assertive about your case",
-                  "Try to convince the officer to cancel the ticket",
-                ]}
-                ctaLabel="Start Conversation"
+                expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+                bulletPoints={
+                  uiLocale === "es"
+                    ? [
+                        "Explica tu situación de forma clara y precisa",
+                        "Usa detalles específicos de tu historia",
+                        "Sé respetuoso(a), pero firme con tu caso",
+                        "Intenta convencer al oficial de anular la multa",
+                      ]
+                    : [
+                        "Explain your situation clearly and accurately",
+                        "Use specific details from your story",
+                        "Be respectful but assertive about your case",
+                        "Try to convince the officer to cancel the ticket",
+                      ]
+                }
+                ctaLabel={uiLocale === "es" ? "Iniciar conversación" : "Start Conversation"}
                 onStart={startConversation}
               />
 

@@ -19,6 +19,8 @@ import {
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function BasicInterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "interview" | "completed">("intro");
@@ -33,6 +35,7 @@ export default function BasicInterviewRoom() {
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(20); // Max 20 points for easy interview
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const mountedRef = useRef(true);
@@ -82,6 +85,15 @@ export default function BasicInterviewRoom() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   /** Stops TTS, speech recognition, and mic state (also used on unmount). */
   const completeAudioShutdown = useCallback(() => {
@@ -482,21 +494,46 @@ export default function BasicInterviewRoom() {
         open={showIntroPopup}
         imageSrc="/cards/interview-room.png"
         imageAlt="Basic Interview"
-        title="Welcome to Your First Interview!"
-        description={
-          <>
-            This is a simplified interview experience perfect for beginners. You will answer
-            just <strong>2 general questions</strong> from our friendly HR manager. Take your time
-            and speak clearly when responding.
-          </>
+        contextSlot={
+          <LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />
         }
-        bulletPoints={[
-          "2 simple interview questions",
-          "Friendly, supportive environment",
-          "Practice your speaking skills",
-          "Receive helpful feedback",
-        ]}
-        ctaLabel="Start My First Interview"
+        title={
+          uiLocale === "es"
+            ? "¡Bienvenido(a) a tu primera entrevista!"
+            : "Welcome to Your First Interview!"
+        }
+        description={
+          uiLocale === "es" ? (
+            <>
+              Esta es una experiencia de entrevista simplificada, ideal para principiantes.
+              Responderás solo <strong>2 preguntas generales</strong> de nuestra amable gerente
+              de RR. HH. Tómate tu tiempo y habla con claridad al responder.
+            </>
+          ) : (
+            <>
+              This is a simplified interview experience perfect for beginners. You will answer
+              just <strong>2 general questions</strong> from our friendly HR manager. Take your time
+              and speak clearly when responding.
+            </>
+          )
+        }
+        expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+        bulletPoints={
+          uiLocale === "es"
+            ? [
+                "2 preguntas de entrevista sencillas",
+                "Un entorno amigable y de apoyo",
+                "Practica tus habilidades de expresión oral",
+                "Recibe retroalimentación útil",
+              ]
+            : [
+                "2 simple interview questions",
+                "Friendly, supportive environment",
+                "Practice your speaking skills",
+                "Receive helpful feedback",
+              ]
+        }
+        ctaLabel={uiLocale === "es" ? "Comenzar mi primera entrevista" : "Start My First Interview"}
         onStart={startInterview}
       />
 

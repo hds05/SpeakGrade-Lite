@@ -19,6 +19,8 @@ import {
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function InterviewRoom() {
   const [phase, setPhase] = useState<"intro" | "main">("intro");
@@ -36,6 +38,7 @@ export default function InterviewRoom() {
   const [score, setScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [questionCount, setQuestionCount] = useState(0);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -92,6 +95,15 @@ export default function InterviewRoom() {
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -621,7 +633,7 @@ export default function InterviewRoom() {
                     </>
                   )}
                   <p className="text-sm sm:text-lg text-white mb-6">
-                    Great job! You've finished Level 3. Please sign up to know
+                    Great job! You&apos;ve finished Level 3. Please sign up to know
                     your score. 😁
                   </p>
                   <div className="flex flex-col justify-between sm:flex-row gap-3">
@@ -651,21 +663,40 @@ export default function InterviewRoom() {
                   overlayClassName="z-[999]"
                   imageSrc="/cards/interview-room.png"
                   imageAlt="Interview room"
-                  title="Welcome to Your Interview"
+                  contextSlot={<LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />}
+                  title={uiLocale === "es" ? "Bienvenido(a) a tu entrevista" : "Welcome to Your Interview"}
                   description={
-                    <>
-                      You are in a professional interview room with three interviewers. Each will
-                      take turns asking you questions. Speak clearly when it&apos;s your turn and
-                      stay focused for the timed session.
-                    </>
+                    uiLocale === "es" ? (
+                      <>
+                        Estás en una sala de entrevistas profesional con tres entrevistadores. Cada uno
+                        turnará para hacerte preguntas. Habla con claridad cuando sea tu turno y mantente
+                        enfocado(a) durante la sesión con tiempo limitado.
+                      </>
+                    ) : (
+                      <>
+                        You are in a professional interview room with three interviewers. Each will
+                        take turns asking you questions. Speak clearly when it&apos;s your turn and
+                        stay focused for the timed session.
+                      </>
+                    )
                   }
-                  bulletPoints={[
-                    "Three interviewers rotate questions",
-                    "Clear, professional answers",
-                    "Timed interview session",
-                    "Listen for who is speaking before you reply",
-                  ]}
-                  ctaLabel="Start Interview"
+                  expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+                  bulletPoints={
+                    uiLocale === "es"
+                      ? [
+                          "Tres entrevistadores se turnan las preguntas",
+                          "Respuestas claras y profesionales",
+                          "Sesión de entrevista con tiempo limitado",
+                          "Escucha quién habla antes de responder",
+                        ]
+                      : [
+                          "Three interviewers rotate questions",
+                          "Clear, professional answers",
+                          "Timed interview session",
+                          "Listen for who is speaking before you reply",
+                        ]
+                  }
+                  ctaLabel={uiLocale === "es" ? "Comenzar entrevista" : "Start Interview"}
                   onStart={startInterview}
                 />
 

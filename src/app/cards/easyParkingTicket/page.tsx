@@ -15,6 +15,8 @@ import { cancelBrowserSpeech, playTtsAudioOrBrowser } from "@/utils/playTtsWithB
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 export default function EasyParkingTicket() {
   const [phase, setPhase] = useState<"intro" | "conversation" | "completed">("intro");
@@ -30,6 +32,7 @@ export default function EasyParkingTicket() {
   const [maxScore, setMaxScore] = useState(20); // Updated for 2-question format
   const [explanationGiven, setExplanationGiven] = useState(false);
   const [feedback, setFeedback] = useState<{ feedback: string; score: number; maxScore: number } | null>(null);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const {
@@ -58,6 +61,15 @@ export default function EasyParkingTicket() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -452,21 +464,40 @@ export default function EasyParkingTicket() {
           open={showIntroPopup}
           imageSrc="/cards/parking-ticket.png"
           imageAlt="Parking Ticket"
-          title="Parking Ticket Explanation"
+          contextSlot={<LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />}
+          title={uiLocale === "es" ? "Explicación de una multa de estacionamiento" : "Parking Ticket Explanation"}
           description={
-            <>
-              You&apos;ve just received a parking ticket and the parking officer is approaching you.
-              You need to explain that you couldn&apos;t find any available parking spots. This is a
-              simple conversation to practice explaining a common situation.
-            </>
+            uiLocale === "es" ? (
+              <>
+                Acabas de recibir una multa de estacionamiento y el oficial se acerca a ti. Necesitas
+                explicar que no encontraste lugares disponibles para estacionar. Esta es una conversación
+                sencilla para practicar cómo explicar una situación común.
+              </>
+            ) : (
+              <>
+                You&apos;ve just received a parking ticket and the parking officer is approaching you.
+                You need to explain that you couldn&apos;t find any available parking spots. This is a
+                simple conversation to practice explaining a common situation.
+              </>
+            )
           }
-          bulletPoints={[
-            "You were looking for parking for 15 minutes",
-            "All legal spots were taken",
-            "You had an important appointment",
-            "Explain your situation respectfully",
-          ]}
-          ctaLabel="Talk to Officer"
+          expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+          bulletPoints={
+            uiLocale === "es"
+              ? [
+                  "Buscaste estacionamiento durante 15 minutos",
+                  "Todos los lugares legales estaban ocupados",
+                  "Tenías una cita importante",
+                  "Explica tu situación con respeto",
+                ]
+              : [
+                  "You were looking for parking for 15 minutes",
+                  "All legal spots were taken",
+                  "You had an important appointment",
+                  "Explain your situation respectfully",
+                ]
+          }
+          ctaLabel={uiLocale === "es" ? "Hablar con el oficial" : "Talk to Officer"}
           onStart={startConversation}
         />
 

@@ -15,6 +15,8 @@ import { playTtsAudioOrBrowser } from "@/utils/playTtsWithBrowserFallback";
 import ScenarioChatLayout from "@/app/components/scenarioChat/ScenarioChatLayout";
 import AudioTestStrip from "@/app/components/scenarioChat/AudioTestStrip";
 import ScenarioWelcomeModal from "@/app/components/scenarioChat/ScenarioWelcomeModal";
+import LocaleTogglePills from "@/app/components/localeToggle/LocaleTogglePills";
+import { getStoredUiLocale, setStoredUiLocale, type UiLocale } from "@/utils/uiLocale";
 
 interface Message {
   role: "user" | "assistant";
@@ -42,6 +44,7 @@ export default function WeeklyCheck() {
   const [maxScore, setMaxScore] = useState<number>(0);
   const [currentQuestionScore, setCurrentQuestionScore] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [uiLocale, setUiLocale] = useState<UiLocale>("en");
   const router = useRouter();
 
   const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -60,6 +63,15 @@ export default function WeeklyCheck() {
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setUiLocale(getStoredUiLocale("en"));
+  }, []);
+
+  const setLocaleAndPersist = (locale: UiLocale) => {
+    setUiLocale(locale);
+    setStoredUiLocale(locale);
+  };
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -399,7 +411,7 @@ export default function WeeklyCheck() {
                 </div>
 
                 <p className="text-sm sm:text-lg text-white mb-6">
-                  Excellent work! You've completed your workplace conversation practice. Your communication skills are improving! 👔
+                  Excellent work! You&apos;ve completed your workplace conversation practice. Your communication skills are improving! 👔
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
@@ -425,38 +437,66 @@ export default function WeeklyCheck() {
                 overlayClassName="z-[999]"
                 imageSrc="/cards/weekly-manager.png"
                 imageAlt="Weekly manager check-in"
-                title="Weekly Check-in with Your Manager"
+                title={
+                  uiLocale === "es"
+                    ? "Reunión semanal con tu gerente"
+                    : "Weekly Check-in with Your Manager"
+                }
                 description={
-                  <>
-                    This is a weekly check-in with your manager {manager.name}. You will discuss
-                    your work using the weekly update below—answer follow-up questions clearly and
-                    professionally.
-                  </>
+                  uiLocale === "es" ? (
+                    <>
+                      Esta es una reunión semanal con tu gerente, {manager.name}. Hablarán sobre tu
+                      trabajo usando la actualización semanal de abajo. Responde las preguntas de
+                      seguimiento con claridad y de forma profesional.
+                    </>
+                  ) : (
+                    <>
+                      This is a weekly check-in with your manager {manager.name}. You will discuss
+                      your work using the weekly update below—answer follow-up questions clearly and
+                      professionally.
+                    </>
+                  )
                 }
                 contextSlot={
                   <div className="space-y-4 text-sm text-gray-700">
+                    <LocaleTogglePills locale={uiLocale} onChange={setLocaleAndPersist} />
                     <div>
-                      <h3 className="mb-2 font-semibold text-gray-800">Your role</h3>
+                      <h3 className="mb-2 font-semibold text-gray-800">
+                        {uiLocale === "es" ? "Tu rol" : "Your role"}
+                      </h3>
                       <p>
-                        You are a marketing employee. Your manager wants to go through your weekly
-                        update.
+                        {uiLocale === "es"
+                          ? "Eres empleado(a) de marketing. Tu gerente quiere revisar tu actualización semanal."
+                          : "You are a marketing employee. Your manager wants to go through your weekly update."}
                       </p>
                     </div>
                     <div>
-                      <h3 className="mb-2 font-semibold text-gray-800">Your weekly update</h3>
+                      <h3 className="mb-2 font-semibold text-gray-800">
+                        {uiLocale === "es" ? "Tu actualización semanal" : "Your weekly update"}
+                      </h3>
                       <div className="rounded-lg bg-gray-100 p-4 text-gray-800">
                         {weeklyUpdateParagraph}
                       </div>
                     </div>
                   </div>
                 }
-                bulletPoints={[
-                  "Read and remember the details from your weekly update",
-                  "Answer your manager's questions based on that information",
-                  "Expect follow-up questions about your work",
-                  "Be professional and natural in your responses",
-                ]}
-                ctaLabel="Start Check-in"
+                expectHeading={uiLocale === "es" ? "Qué esperar:" : "What to expect:"}
+                bulletPoints={
+                  uiLocale === "es"
+                    ? [
+                        "Lee y recuerda los detalles de tu actualización semanal",
+                        "Responde las preguntas de tu gerente con esa información",
+                        "Espera preguntas de seguimiento sobre tu trabajo",
+                        "Sé profesional y natural en tus respuestas",
+                      ]
+                    : [
+                        "Read and remember the details from your weekly update",
+                        "Answer your manager's questions based on that information",
+                        "Expect follow-up questions about your work",
+                        "Be professional and natural in your responses",
+                      ]
+                }
+                ctaLabel={uiLocale === "es" ? "Comenzar reunión" : "Start Check-in"}
                 onStart={startConversation}
               />
 
