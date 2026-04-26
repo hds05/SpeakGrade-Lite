@@ -409,10 +409,15 @@ export default function InterviewRoom() {
       }
 
       if (reply.trim()) {
-        setHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: reply, speaker: actualSpeaker },
-        ]);
+        setHistory((prev) => {
+          const PROCESSING_MSG = "Dame un momento…";
+          const last = prev[prev.length - 1];
+          const nextAssistant = { role: "assistant" as const, content: reply, speaker: actualSpeaker };
+          if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+            return [...prev.slice(0, -1), nextAssistant];
+          }
+          return [...prev, nextAssistant];
+        });
         await playVoice(reply, actualSpeaker);
       } else {
         console.warn("⚠️ No valid text to speak.");
@@ -500,10 +505,15 @@ export default function InterviewRoom() {
   const processUserAnswer = async (answer: string) => {
     console.log("🗣️ User answered:", answer);
     console.log("🎯 Current interviewer index:", index);
+    const PROCESSING_MSG = "Dame un momento…";
     
     disableListeningForUser();
 
-    setHistory((prev) => [...prev, { role: "user", content: answer }]);
+    setHistory((prev) => [
+      ...prev,
+      { role: "user", content: answer },
+      { role: "assistant", content: PROCESSING_MSG, speaker: interviewers[(index + 1) % interviewers.length].name },
+    ]);
 
     // Get next interviewer in cycle
     const nextIndex = (index + 1) % interviewers.length;

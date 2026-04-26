@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { debugLog, debugWarn } from "@/lib/debugLog";
 
 interface Message {
   role: string;
@@ -184,9 +185,19 @@ Provide constructive, professional feedback that encourages improvement while re
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body: RequestBody = await req.json();
-    console.log("✅ Received body in Interview Room /respond:", body);
+    debugLog("✅ InterviewRoom /respond received:", {
+      userMessageLen: body.userMessage?.length ?? 0,
+      historyLen: body.conversationHistory?.length ?? 0,
+      currentSpeaker: body.currentSpeaker,
+      timeLeft: body.timeLeft,
+      questionCount: body.questionCount ?? 0,
+    });
 
     const { userMessage, conversationHistory = [], currentSpeaker, timeLeft = 30, questionCount = 0 } = body;
+    const trimmedHistory =
+      conversationHistory.length > 14
+        ? conversationHistory.slice(-14)
+        : conversationHistory;
 
     // Score user's response if they provided one
     let scoreData: ScoreData = { points: 0, maxPoints: 1, feedback: "" };
@@ -197,7 +208,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .pop()?.content || "initial question";
       
       scoreData = await scoreUserResponse(userMessage, lastInterviewerQuestion, questionCount);
-      console.log("📊 Interview score:", scoreData);
+      debugLog("📊 Interview score:", scoreData.points);
     }
 
     const systemMsg: Message = {
@@ -222,8 +233,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : `Start the interview by greeting the candidate and asking your first question.`,
     };
     
-    const content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-    console.log("🧠 GPT raw response:", content);
+    const content = await callOpenAI([systemMsg, ...trimmedHistory, userPrompt]);
+    debugLog("🧠 GPT raw response length:", content.length);
 
     let json: ConversationResponse | null = null;
     try {
@@ -240,7 +251,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (!json) {
-      console.warn("⚠️ GPT response not JSON. Falling back.");
+      debugWarn("⚠️ GPT response not JSON. Falling back.");
       const fallbackQuestions = [
         "Hello and welcome to your interview. Can you please tell us about yourself?",
         "Thanks — can you tell me more about your background?",
@@ -270,21 +281,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const currentMaxScore = Math.max(1, questionCount);
         
         feedback = await generateFeedback(conversationHistory, questionCount, currentScore, currentMaxScore);
-        console.log("📊 Generated feedback:", feedback);
+        debugLog("📊 Generated feedback");
       } catch (error) {
-        console.warn("⚠️ Failed to generate feedback:", error);
+        debugWarn("⚠️ Failed to generate feedback:", error);
       }
     }
 
-    console.log("📤 Interview Room /respond sending:", JSON.stringify({ conversation: json, feedback, score: scoreData }, null, 2));
-    console.log("📊 Score data:", scoreData);
+    debugLog("📤 InterviewRoom sending:", {
+      speaker: json.speaker,
+      textLen: json.text.length,
+      hasFeedback: !!feedback,
+    });
 
        // Calculate progress based on question count and time
        const totalQuestions = 8; // Total questions in the scenario
        const currentProgress = Math.min(questionCount, totalQuestions);
        const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
        
-       console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+       debugLog(`📈 Progress: ${currentProgress}/${totalQuestions} (${overallProgress}%)`);
    
        return NextResponse.json({ 
          conversation: json,

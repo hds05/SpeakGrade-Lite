@@ -282,11 +282,16 @@ export default function ParkingTicket(): React.JSX.Element {
           return;
         }
 
-                if (reply.trim()) {
-          setHistory((prev) => [
-            ...prev,
-            { role: "assistant", content: reply, speaker: actualSpeaker },
-          ]);
+              if (reply.trim()) {
+          setHistory((prev) => {
+            const PROCESSING_MSG = "Procesando…";
+            const last = prev[prev.length - 1];
+            const nextAssistant = { role: "assistant" as const, content: reply, speaker: actualSpeaker };
+            if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+              return [...prev.slice(0, -1), nextAssistant];
+            }
+            return [...prev, nextAssistant];
+          });
           
           // Ensure question count is incremented for this response
           if (data.progress && typeof data.progress.current === 'number') {
@@ -418,12 +423,17 @@ export default function ParkingTicket(): React.JSX.Element {
   // Process user answer
   const processUserAnswer = async (answer: string): Promise<void> => {
     if (!answer.trim() || answer.trim().length < 3) return;
+    const PROCESSING_MSG = "Procesando…";
     
     console.log("🗣️ User answered:", answer);
     SpeechRecognition.stopListening();
     setMicActive(false);
 
-    setHistory((prev) => [...prev, { role: "user", content: answer }]);
+    setHistory((prev) => [
+      ...prev,
+      { role: "user", content: answer },
+      { role: "assistant", content: PROCESSING_MSG, speaker: "Officer Davis" },
+    ]);
 
     try {
       await getOfficerResponse(answer);

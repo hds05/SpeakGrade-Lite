@@ -257,6 +257,7 @@ export default function Emergency911() {
   const processUserInput = async (text: string) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
+    const PROCESSING_MSG = "Dame un momento…";
 
     // Stop mic while processing
     setMuted(true);
@@ -265,6 +266,7 @@ export default function Emergency911() {
     setConversationHistory((prev) => [
       ...prev,
       { role: "user", content: text },
+      { role: "assistant", content: PROCESSING_MSG, speaker: "911 Dispatcher" },
     ]);
 
     try {
@@ -290,10 +292,18 @@ export default function Emergency911() {
 
       const data = await res.json();
       if (data.conversation?.text) {
-        setConversationHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: data.conversation.text, speaker: data.conversation.speaker },
-        ]);
+        setConversationHistory((prev) => {
+          const last = prev[prev.length - 1];
+          const nextAssistant = {
+            role: "assistant" as const,
+            content: data.conversation.text,
+            speaker: data.conversation.speaker,
+          };
+          if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+            return [...prev.slice(0, -1), nextAssistant];
+          }
+          return [...prev, nextAssistant];
+        });
 
         // Update question count
         setQuestionCount(prev => prev + 1);
@@ -301,6 +311,14 @@ export default function Emergency911() {
         // Play the AI response - mic will be re-enabled in handleAiReply after audio finishes
         await handleAiReply(data.conversation.text);
       } else {
+        // Remove placeholder if we didn't get a response.
+        setConversationHistory((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+            return prev.slice(0, -1);
+          }
+          return prev;
+        });
         // If no response, restart mic anyway with longer delay
         setTimeout(() => {
           if (callActive) {
@@ -318,6 +336,14 @@ export default function Emergency911() {
       if (err instanceof Error && err.name === 'AbortError') {
         console.log("API request timed out");
       }
+      // Remove placeholder on error (avoid leaving "Procesando..." stuck).
+      setConversationHistory((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
       // Restart mic on error with longer delay
       setTimeout(() => {
         if (callActive) {

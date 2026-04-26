@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { trackOpenAIUsage, canMakeAPICall } from "@/lib/apiTracking";
+import { debugLog } from "@/lib/debugLog";
 
 interface Message {
   role: string;
@@ -104,7 +105,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const body: RequestBody = await req.json();
-    console.log("✅ Received body in Easy Fast Food /respond:", body);
+    debugLog("✅ EasyFastFood /respond received:", {
+      userMessageLen: body.userMessage?.length ?? 0,
+      historyLen: body.conversationHistory?.length ?? 0,
+      questionNumber: body.questionNumber,
+    });
 
     const { userMessage, conversationHistory = [], questionNumber } = body;
 
@@ -124,14 +129,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     
     if (userMessage && userMessage.trim()) {
       scoreData = await scoreUserResponse(userMessage);
-      console.log("📊 Easy fast food score:", scoreData);
+      debugLog("📊 Easy fast food score computed:", scoreData.points);
     }
 
     let workerResponse = "";
     
     if (questionNumber === 2 && userMessage) {
       // Generate AI follow-up question with personalization
-      console.log("🤖 Generating personalized AI follow-up for fast food order:", userMessage);
+      debugLog("🤖 Generating personalized AI follow-up");
       
       const systemPrompt = {
         role: "system",
@@ -163,7 +168,7 @@ Create a follow-up question that specifically references and builds upon what th
 
       try {
         workerResponse = await callOpenAI([systemPrompt, userPrompt]);
-        console.log("🎯 AI generated personalized follow-up:", workerResponse);
+        debugLog("🎯 AI follow-up length:", workerResponse.length);
       } catch (error) {
         console.error("❌ Error calling OpenAI:", error);
         // Fallback to a personalized random question
@@ -200,14 +205,14 @@ Create a follow-up question that specifically references and builds upon what th
     try {
       const usageTracking = await trackOpenAIUsage(workerResponse, 'gpt-4o-mini', userId);
       if (usageTracking.success) {
-        console.log(`✅ Credits tracked: ${usageTracking.creditsUsed} used, ${usageTracking.remainingCredits} remaining`);
+        debugLog(`✅ Credits tracked: ${usageTracking.creditsUsed} used, ${usageTracking.remainingCredits} remaining`);
       }
     } catch (trackingError) {
       console.error("Error tracking API usage:", trackingError);
       // Continue execution - don't fail the request for tracking errors
     }
 
-    console.log("✅ Sending response:", response);
+    debugLog("✅ EasyFastFood sending response");
     return NextResponse.json(response);
 
   } catch (error) {

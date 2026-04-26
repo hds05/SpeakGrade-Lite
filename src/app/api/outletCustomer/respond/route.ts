@@ -1,5 +1,6 @@
 // ✅ src/app/api/outletCustomer/respond/route.ts
 import { NextResponse } from "next/server";
+import { debugLog, debugWarn } from "@/lib/debugLog";
 
 // Add this function before POST
 async function callOpenAI(messages: any[]) {
@@ -123,9 +124,17 @@ function updateIssuesResolved(conversationHistory: any[], currentIssues: any): a
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("✅ Received body in Level 6 /respond:", body);
+    debugLog("✅ OutletCustomer /respond received:", {
+      userMessageLen: body.userMessage?.length ?? 0,
+      historyLen: body.conversationHistory?.length ?? 0,
+      questionCount: body.questionCount ?? 0,
+    });
 
     const { userMessage, conversationHistory = [], questionCount = 0, issuesResolved = {} } = body;
+    const trimmedHistory =
+      conversationHistory.length > 12
+        ? conversationHistory.slice(-12)
+        : conversationHistory;
 
     // Customer service context that the AI cashier should reference
     const serviceContext = `
@@ -147,7 +156,7 @@ export async function POST(req: Request) {
         .pop()?.content || "initial greeting";
       
       scoreData = await scoreUserResponse(userMessage, lastCashierQuestion);
-      console.log("📊 User score:", scoreData);
+      debugLog("📊 User score:", scoreData.points);
     }
 
     // Update issues resolved based on conversation
@@ -200,10 +209,10 @@ export async function POST(req: Request) {
     
     let content;
     try {
-      content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-      console.log("🧠 GPT raw response:", content);
+      content = await callOpenAI([systemMsg, ...trimmedHistory, userPrompt]);
+      debugLog("🧠 GPT raw response length:", content.length);
     } catch (error) {
-      console.log("⚠️ OpenAI API call failed, using fallback:", error);
+      debugWarn("⚠️ OpenAI API call failed, using fallback:", error);
       content = null;
     }
 
@@ -226,7 +235,7 @@ export async function POST(req: Request) {
 
     // Fallback responses based on question count and issues
     if (!json) {
-      console.warn("⚠️ GPT response not JSON. Using fallback.");
+      debugWarn("⚠️ GPT response not JSON. Using fallback.");
       const fallbackQuestions = [
         "Hi there—what can I help you with today?",
         "Could you walk me through what you'd like to sort out with your purchase?",
@@ -251,10 +260,12 @@ export async function POST(req: Request) {
     const currentProgress = Math.min(questionCount, totalQuestions);
     const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
     
-    console.log("📤 Level 6 /respond sending:", JSON.stringify(json, null, 2));
-    console.log("📊 Score data:", scoreData);
-    console.log("�� Issues resolved:", updatedIssues);
-    console.log(`�� Progress - Current: ${currentProgress}/${totalQuestions}, Overall: ${overallProgress}%`);
+    debugLog("📤 OutletCustomer sending:", {
+      speaker: json.speaker,
+      textLen: json.text.length,
+      resolvedCount,
+      progress: `${currentProgress}/${totalQuestions}`,
+    });
 
     return NextResponse.json({ 
       conversation: json,

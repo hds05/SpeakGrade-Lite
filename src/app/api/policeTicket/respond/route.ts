@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { debugLog, debugWarn } from "@/lib/debugLog";
 
 interface Message {
   role: string;
@@ -159,9 +160,17 @@ function determineTicketOutcome(conversationHistory: Message[], questionCount: n
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body: RequestBody = await req.json();
-    console.log("✅ Received body in Police Ticket /respond:", body);
+    debugLog("✅ PoliceTicket /respond received:", {
+      userMessageLen: body.userMessage?.length ?? 0,
+      historyLen: body.conversationHistory?.length ?? 0,
+      questionCount: body.questionCount ?? 0,
+    });
 
     const { userMessage, conversationHistory = [], questionCount = 0 } = body;
+    const trimmedHistory =
+      conversationHistory.length > 12
+        ? conversationHistory.slice(-12)
+        : conversationHistory;
 
     // Facts context that the AI officer should reference
     const factsContext = `
@@ -186,7 +195,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .pop()?.content || "initial question";
       
       scoreData = await scoreUserResponse(userMessage, lastOfficerQuestion);
-      console.log("📊 User score:", scoreData);
+      debugLog("📊 User score:", scoreData.points);
       
       // Calculate running totals for ticket decision
       currentScore = conversationHistory
@@ -236,8 +245,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : `Start by asking about how long they've been parked here.`,
     };
     
-    const content = await callOpenAI([systemMsg, ...conversationHistory, userPrompt]);
-    console.log("🧠 GPT raw response:", content);
+    const content = await callOpenAI([systemMsg, ...trimmedHistory, userPrompt]);
+    debugLog("🧠 GPT raw response length:", content.length);
 
     let json: ConversationResponse | null = null;
     try {
@@ -256,7 +265,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Fallback responses based on question count and ticket status
     if (!json) {
-      console.warn("⚠️ GPT response not JSON. Using fallback.");
+      debugWarn("⚠️ GPT response not JSON. Using fallback.");
       const fallbackQuestions = [
         "How long have you been parked here?",
         "What were you doing in the café?",
@@ -280,10 +289,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const currentProgress = Math.min(questionCount + 1, totalQuestions);
     const overallProgress = Math.round((currentProgress / totalQuestions) * 100);
 
-    console.log("📤 Police Ticket /respond sending:", JSON.stringify(json, null, 2));
-    console.log("📊 Score data:", scoreData);
-    console.log("🎫 Ticket outcome:", ticketOutcome);
-    console.log(`📊 Progress: ${currentProgress}/${totalQuestions} (${overallProgress}%)`);
+    debugLog("📤 PoliceTicket sending:", {
+      speaker: json.speaker,
+      textLen: json.text.length,
+      ticketOutcome,
+      progress: `${currentProgress}/${totalQuestions}`,
+    });
 
     return NextResponse.json({ 
       conversation: json,
