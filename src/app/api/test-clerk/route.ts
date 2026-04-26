@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { clerkClient } from '@clerk/nextjs/server';
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
@@ -20,7 +19,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     // Test 2: Clerk Client
     console.log("🏢 Testing clerkClient...");
-    const user = await clerkClient.users.getUser(userId);
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
     console.log("👤 User data:", {
       id: user.id,
       emailAddresses: user.emailAddresses.map(e => e.emailAddress),

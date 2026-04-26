@@ -68,6 +68,9 @@ export default function InterviewRoom() {
   listeningRef.current = listening;
   transcriptRef.current = transcript;
 
+  const PROCESSING_MSG =
+    uiLocale === "es" ? "Dame un momento…" : "Give me a moment…";
+
   useEffect(() => {
     interviewStartedRef.current = interviewStarted;
   }, [interviewStarted]);
@@ -314,6 +317,12 @@ export default function InterviewRoom() {
       return;
     }
 
+    // If a previous run left timers behind, clear them before starting a new one.
+    if (interviewTimerRef.current) {
+      clearTimeout(interviewTimerRef.current);
+      interviewTimerRef.current = null;
+    }
+
     // clear old data
     resetTranscript();        // ✅ clear previous transcript
     setHistory([]);           // ✅ clear previous conversation
@@ -350,12 +359,18 @@ export default function InterviewRoom() {
   // Fetch one interviewer's question
   const getInterviewerQuestion = async (
     speaker: string,
-    userMessage?: string
+    userMessage?: string,
+    questionCountOverride?: number
   ) => {
     setLoading(true);
     console.log(`🎤 Asking ${speaker} for their question...`);
     console.log(`📝 User message:`, userMessage);
     console.log(`📚 Conversation history:`, history);
+    const qc =
+      typeof questionCountOverride === "number"
+        ? questionCountOverride
+        : questionCount;
+    console.log(`🔢 questionCount (client):`, qc);
     
     const historyForApi =
       userMessage && userMessage.trim()
@@ -371,9 +386,16 @@ export default function InterviewRoom() {
           userMessage: userMessage || "",
           conversationHistory: historyForApi,
           timeLeft: timeLeft,
-          questionCount: questionCount,
+          questionCount: qc,
         }),
       });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `InterviewRoom respond failed (${res.status}): ${text || res.statusText}`
+        );
+      }
 
       const data = await res.json();
       console.log(`🤖 ${speaker} asked:`, data);
@@ -410,7 +432,6 @@ export default function InterviewRoom() {
 
       if (reply.trim()) {
         setHistory((prev) => {
-          const PROCESSING_MSG = "Dame un momento…";
           const last = prev[prev.length - 1];
           const nextAssistant = { role: "assistant" as const, content: reply, speaker: actualSpeaker };
           if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
@@ -427,6 +448,20 @@ export default function InterviewRoom() {
       }
     } catch (err) {
       console.error(err);
+      setHistory((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.content === PROCESSING_MSG) {
+          const msg =
+            uiLocale === "es"
+              ? "Ahora mismo tengo problemas para responder. Intenta de nuevo en unos segundos."
+              : "I'm having trouble responding right now. Please try again in a few seconds.";
+          return [
+            ...prev.slice(0, -1),
+            { role: "assistant" as const, content: msg, speaker },
+          ];
+        }
+        return prev;
+      });
       if (interviewStartedRef.current) {
         enableListeningForUser();
       }
@@ -505,9 +540,13 @@ export default function InterviewRoom() {
   const processUserAnswer = async (answer: string) => {
     console.log("🗣️ User answered:", answer);
     console.log("🎯 Current interviewer index:", index);
-    const PROCESSING_MSG = "Dame un momento…";
     
     disableListeningForUser();
+
+    // Increment question count immediately so server fallbacks advance instead of restarting at Q1.
+    // (The server uses questionCount for fallback question selection when the model call fails.)
+    const nextQuestionCount = questionCount + 1;
+    setQuestionCount(nextQuestionCount);
 
     setHistory((prev) => [
       ...prev,
@@ -522,7 +561,11 @@ export default function InterviewRoom() {
 
     // Ask next interviewer
     console.log("📞 Calling getInterviewerQuestion for:", interviewers[nextIndex].name);
-    await getInterviewerQuestion(interviewers[nextIndex].name, answer);
+    await getInterviewerQuestion(
+      interviewers[nextIndex].name,
+      answer,
+      nextQuestionCount
+    );
   };
 
   // Mute = stop mic; if we were capturing an answer, treat it as "done" (listening often stays true until stop).

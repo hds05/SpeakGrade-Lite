@@ -233,8 +233,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : `Start the interview by greeting the candidate and asking your first question.`,
     };
     
-    const content = await callOpenAI([systemMsg, ...trimmedHistory, userPrompt]);
-    debugLog("🧠 GPT raw response length:", content.length);
+    let content = "";
+    try {
+      content = await callOpenAI([systemMsg, ...trimmedHistory, userPrompt]);
+      debugLog("🧠 GPT raw response length:", content.length);
+    } catch (e) {
+      // If the OpenAI call fails (keys, region restrictions, transient errors),
+      // fall back to deterministic prompts instead of returning 500.
+      debugWarn("⚠️ OpenAI call failed; using fallback question.", e);
+      content = "";
+    }
 
     let json: ConversationResponse | null = null;
     try {
@@ -312,6 +320,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
        });
   } catch (err) {
     console.error("❌ respond error", err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    // Never hard-fail the UI; provide a minimal fallback response.
+    return NextResponse.json(
+      {
+        conversation: {
+          speaker: "Interviewer",
+          text: "Let's continue. Can you tell me more about your experience?",
+        },
+        score: { points: 0, maxPoints: 1, feedback: "" },
+      },
+      { status: 200 }
+    );
   }
 }
