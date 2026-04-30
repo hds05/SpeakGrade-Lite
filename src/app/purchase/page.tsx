@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import {
   CheckCircleIcon,
   CreditCardIcon,
@@ -14,6 +16,19 @@ import {
 
 export default function PurchasePage(): React.JSX.Element {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const [couponStatus, setCouponStatus] = useState<"idle" | "applied" | "invalid">(
+    "idle"
+  );
+
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+
+  const BASE_PRICE_USD = 100;
+  const VALID_COUPON = "FREE2026";
+  const normalizedCoupon = coupon.trim().toUpperCase();
+  const isFree = couponStatus === "applied";
+  const totalUsd = isFree ? 0 : BASE_PRICE_USD;
 
   const features = [
     "Access to all 12 communication scenarios",
@@ -24,17 +39,38 @@ export default function PurchasePage(): React.JSX.Element {
     "Lifetime access",
   ];
 
+  const applyCoupon = () => {
+    if (normalizedCoupon.length === 0) {
+      setCouponStatus("idle");
+      return;
+    }
+    if (normalizedCoupon === VALID_COUPON) {
+      setCouponStatus("applied");
+    } else {
+      setCouponStatus("invalid");
+    }
+  };
+
   const handlePurchase = () => {
     setIsProcessing(true);
     
     // Simulate processing
     setTimeout(() => {
-      // In a real implementation, you would integrate with PayPal here
-      // For now, we'll simulate a successful purchase
-      localStorage.setItem('speakgrade_purchase_status', 'purchased');
-      
-      // Redirect to sign-up with purchase context
-      window.location.href = '/sign-up?purchased=true';
+      // Grant access locally (DB check comes later)
+      localStorage.setItem("speakgrade_purchase_status", "purchased");
+
+      // Free total: go straight to dashboard if logged in, otherwise sign up
+      if (totalUsd === 0) {
+        if (user) {
+          router.push("/dashboard");
+          return;
+        }
+        window.location.href = "/sign-up?purchased=true";
+        return;
+      }
+
+      // Paid flow placeholder (Stripe/PayPal later)
+      window.location.href = "https://www.google.com";
     }, 2000);
   };
 
@@ -143,7 +179,9 @@ export default function PurchasePage(): React.JSX.Element {
                 <CheckCircleIcon className="w-4 h-4" />
                 One-time Payment
               </div>
-              <div className="text-6xl font-bold text-gray-800 mb-2">$100</div>
+              <div className="text-6xl font-bold text-gray-800 mb-2">
+                ${BASE_PRICE_USD}
+              </div>
               <p className="text-gray-600">Lifetime access to SpeakGrade Lite</p>
             </div>
 
@@ -160,6 +198,64 @@ export default function PurchasePage(): React.JSX.Element {
                   <span className="text-gray-700">{feature}</span>
                 </motion.div>
               ))}
+            </div>
+
+            {/* Coupon + Total */}
+            <div className="mb-6 rounded-2xl border border-gray-200 bg-white/70 p-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Coupon
+                  </label>
+                  <input
+                    value={coupon}
+                    onChange={(e) => {
+                      setCoupon(e.target.value);
+                      setCouponStatus("idle");
+                    }}
+                    placeholder="Enter coupon code"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isProcessing}
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Cupón de prueba: <span className="font-semibold">{VALID_COUPON}</span>
+                  </p>
+                  {couponStatus === "applied" && (
+                    <p className="mt-2 text-sm text-green-700 font-semibold">
+                      Coupon applied. Total updated.
+                    </p>
+                  )}
+                  {couponStatus === "invalid" && (
+                    <p className="mt-2 text-sm text-red-600 font-semibold">
+                      Invalid coupon.
+                    </p>
+                  )}
+                </div>
+                <div className="sm:pt-6">
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    disabled={isProcessing || normalizedCoupon.length === 0}
+                    className="w-full sm:w-auto rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Use
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-50 to-blue-50 px-4 py-3 border border-blue-100">
+                <div className="text-sm text-gray-700">
+                  <div className="font-semibold">Total</div>
+                  <div className="text-xs text-gray-500">
+                    {couponStatus === "applied"
+                      ? `Discount (${VALID_COUPON}) applied`
+                      : "Taxes not included"}
+                  </div>
+                </div>
+                <div className="text-2xl font-extrabold text-gray-900">
+                  ${totalUsd}
+                </div>
+              </div>
             </div>
 
             <motion.button
@@ -181,7 +277,9 @@ export default function PurchasePage(): React.JSX.Element {
               ) : (
                 <div className="flex items-center justify-center gap-2 text-sm sm:text-base">
                   <CreditCardIcon className="w-5 h-5" />
-                  Purchase with PayPal - $100
+                  {totalUsd === 0
+                    ? "Activate Access - $0"
+                    : `Purchase (PayPal/Stripe) - $${totalUsd}`}
                 </div>
               )}
             </motion.button>
@@ -189,7 +287,11 @@ export default function PurchasePage(): React.JSX.Element {
             <div className="mt-6 text-center">
               <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
                 <ShieldCheckIcon className="w-4 h-4" />
-                <span>Secure payment powered by PayPal</span>
+                <span>
+                  {totalUsd === 0
+                    ? "No payment required (coupon applied)"
+                    : "Secure payment (gateway placeholder)"}
+                </span>
               </div>
             </div>
           </motion.div>

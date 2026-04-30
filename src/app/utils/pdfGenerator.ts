@@ -76,7 +76,10 @@ export const generatePDFReport = (data: PDFReportData): void => {
       yPosition = 20;
     }
     
-    const speaker = message.speaker || message.role;
+    const speaker =
+      message.role === "assistant"
+        ? "Interviewer"
+        : message.speaker || message.role;
     const content = message.content;
     
     // Speaker name

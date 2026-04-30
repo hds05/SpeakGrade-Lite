@@ -15,7 +15,7 @@ export default function Page() {
               card: "shadow-2xl",
             }
           }}
-          redirectUrl="/dashboard"
+          redirectUrl="/purchase"
         />
       </div>
     </div>

@@ -39,6 +39,7 @@ export default function InterviewRoom() {
   const [maxScore, setMaxScore] = useState(0);
   const [questionCount, setQuestionCount] = useState(0);
   const [uiLocale, setUiLocale] = useState<UiLocale>("en");
+  const [showMuteTutorial, setShowMuteTutorial] = useState(true);
   const router = useRouter();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,13 @@ export default function InterviewRoom() {
     setUiLocale(locale);
     setStoredUiLocale(locale);
   };
+
+  useEffect(() => {
+    // Show the tutorial only when the mic is open for the user's turn.
+    if (interviewStarted && micActive) {
+      setShowMuteTutorial(true);
+    }
+  }, [interviewStarted, micActive]);
 
   useEffect(() => {
     if (!SpeechRecognition.browserSupportsSpeechRecognition()) {
@@ -826,6 +834,32 @@ export default function InterviewRoom() {
                       controlsSlot={
                         <div className="relative z-10 flex flex-wrap items-center justify-center gap-2">
                           {micActive && <SoundWave speaking={listening} />}
+                          {micActive && showMuteTutorial && (
+                            <div className="relative flex w-full justify-center">
+                              <div className="mb-1 w-full max-w-lg rounded-xl border border-white/20 bg-black/60 px-4 py-2 text-center text-xs text-white shadow-lg backdrop-blur-md">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="leading-relaxed">
+                                    {uiLocale === "es"
+                                      ? "Cuando el entrevistador termine de hablar, tu micrófono se abre automáticamente. Habla tu respuesta y, cuando termines, presiona “Mute” para enviarla al bot."
+                                      : "After the interviewer finishes speaking, your microphone opens automatically. Say your answer and, when you’re done, press “Mute” to send it to the bot."}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowMuteTutorial(false)}
+                                    className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/90 hover:bg-white/20"
+                                    aria-label={uiLocale === "es" ? "Cerrar ayuda" : "Dismiss help"}
+                                  >
+                                    {uiLocale === "es" ? "Cerrar" : "Got it"}
+                                  </button>
+                                </div>
+                                <div className="mt-1 text-[10px] text-white/70">
+                                  {uiLocale === "es"
+                                    ? "Tip: verás tu transcripción arriba mientras hablas."
+                                    : "Tip: you’ll see your transcript updating above as you speak."}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={handleMute}
@@ -844,12 +878,15 @@ export default function InterviewRoom() {
                       }
                     >
                       {history.map((message: { role: string; content: string; speaker?: string }, idx: number) => {
-                        const avatarSrc =
-                          message.role === "assistant" && message.speaker
-                            ? interviewers.find((i) => i.name === message.speaker)?.image ?? interviewers[0].image
-                            : null;
+                        // UI requirement: show a single, consistent bot identity in chat.
+                        // Keep `message.speaker` internally for TTS/highlighting, but don't display it as the chat name.
+                        const avatarSrc = message.role === "assistant" ? interviewers[0].image : null;
                         const label =
-                          message.role === "assistant" && message.speaker ? message.speaker : "You";
+                          message.role === "assistant"
+                            ? uiLocale === "es"
+                              ? "Entrevistador"
+                              : "Interviewer"
+                            : "You";
                         return (
                           <div
                             key={idx}
